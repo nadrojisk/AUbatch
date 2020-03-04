@@ -126,15 +126,14 @@ void *scheduler(void *ptr)
     for (i = 0; i < NUM_OF_CMD; i++)
     {
 
+        /* lock the shared command queue */
+        pthread_mutex_lock(&cmd_queue_lock);
+        printf("In scheduler: count = %d\n", count);
+
         while (count == CMD_BUF_SIZE)
         {
             pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
         }
-
-        /* lock the shared command queue */
-        pthread_mutex_lock(&cmd_queue_lock);
-
-        printf("In scheduler: count = %d\n", count);
 
         /* Dynamically create a buffer slot to hold a scheduler */
 
@@ -194,14 +193,14 @@ void *dispatcher(void *ptr)
     for (i = 0; i < NUM_OF_CMD; i++)
     {
 
+        /* lock and unlock for the shared process queue */
+        pthread_mutex_lock(&cmd_queue_lock);
+        printf("In dispatcher: count = %d\n", count);
+
         while (count == 0)
         {
             pthread_cond_wait(&cmd_buf_not_empty, &cmd_queue_lock);
         }
-
-        /* lock and unlock for the shared process queue */
-        pthread_mutex_lock(&cmd_queue_lock);
-        printf("In dispatcher: count = %d\n", count);
 
         /* Run the command scheduled in the queue */
         count--;
@@ -250,7 +249,6 @@ process_p get_process(process_p *process_buffer, int index)
 char *first_come_first_serve_scheduler(process_p *process_buffer)
 {
     process_p ready = get_process(process_buffer, buf_tail);
-    buf_tail++;
 
     return ready->cmd;
 }
