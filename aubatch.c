@@ -58,8 +58,9 @@ void *dispatcher(void *ptr); /* To simulate job execution */
 char *first_come_first_serve_scheduler(process_p *process_buffer);
 char *shortest_job_first_scheduler(process_p *process_buffer);
 int compare(const process_p x, const process_p y);
-process_p *copy_process_buffer(process_p process_buffer);
+process_p *copy_process_buffer(process_p *process_buffer);
 process_p copy_process(process_p process);
+process_p get_process(process_p *process_buffer, int index);
 
 pthread_mutex_t cmd_queue_lock; /* Lock for critical sections */
 
@@ -144,7 +145,8 @@ void *scheduler(void *ptr)
         printf(">");
 
         char cmd_string[MAX_CMD_LEN];
-        fgets(&cmd_string, MAX_CMD_LEN, stdin);
+        //fgets(&cmd_string, MAX_CMD_LEN, stdin); // why is this incorrect? i get a incompatible pointer type warning?
+        fgets(cmd_string, MAX_CMD_LEN, stdin);
 
         // load process structure
         strcpy(process->cmd, cmd_string);
@@ -173,7 +175,7 @@ void *scheduler(void *ptr)
 
         pthread_cond_signal(&cmd_buf_not_empty);
         pthread_mutex_unlock(&cmd_queue_lock);
-        }
+    }
 }
 
 /*
@@ -216,10 +218,11 @@ void *dispatcher(void *ptr)
         case PRIORITY:
             break;
         default:
-            printf("In dispatcher: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]);
-            cmd = process_buffer[buf_head];
+            printf("In dispatcher: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
+            cmd = process_buffer[buf_head]->cmd;
         }
-        execv(cmd, NULL);
+        char *argv[] = {NULL};
+        execv(cmd, argv);
         /* Free the dynamically allocated memory for the buffer */
         free(cmd);
 
@@ -238,30 +241,31 @@ void print_message(char *ptr)
     printf("%s \n", ptr);
 }
 
-process_p *get_process(process_p *process_buffer, int index)
+process_p get_process(process_p *process_buffer, int index)
 {
-    printf("In dispatcher: process_buffer[%d] = %s\n", index, process_buffer[index]);
+    printf("In dispatcher: process_buffer[%d] = %s\n", index, process_buffer[index]->cmd);
     return process_buffer[index];
 }
+
 char *first_come_first_serve_scheduler(process_p *process_buffer)
 {
-    process_p *ready = get_process(process_buffer, buf_tail);
-    process_buffer = process_buffer[buf_tail + 1];
+    process_p ready = get_process(process_buffer, buf_tail);
+    buf_tail++;
 
-    return ready;
+    return ready->cmd;
 }
 
 char *shortest_job_first_scheduler(process_p *process_buffer)
 {
     // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]);
     process_p *sorted_buffer = copy_process_buffer(process_buffer);
-    qsort(sorted_buffer, CMD_BUF_SIZE, sizeof(process_t), compare);
+    qsort(sorted_buffer, CMD_BUF_SIZE, sizeof(process_t), (void *)compare);
 
-    printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]);
+    printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
-    char *ready = process_buffer[buf_tail];
-    process_buffer = process_buffer[buf_tail + 1];
-    return ready;
+    process_p ready = process_buffer[buf_tail];
+    // TODO deque
+    return ready->cmd;
 }
 
 int compare(const process_p x, const process_p y)
@@ -277,12 +281,12 @@ int compare(const process_p x, const process_p y)
         return 0;
 }
 
-process_p *copy_process_buffer(process_p process_buffer)
+process_p *copy_process_buffer(process_p *process_buffer)
 {
     process_p *new_process_buffer = malloc(sizeof(new_process_buffer));
     for (int i = 0; i < CMD_BUF_SIZE; i++)
     {
-        process_p tmp = &process_buffer[i];
+        process_p tmp = process_buffer[i];
         process_p new_process = copy_process(tmp);
         new_process_buffer[i] = new_process;
     }
