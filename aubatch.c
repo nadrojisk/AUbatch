@@ -58,7 +58,12 @@ void *scheduler(void *ptr);  /* To simulate job submissions and scheduling */
 void *dispatcher(void *ptr); /* To simulate job execution */
 process_p first_come_first_serve_scheduler(process_p *process_buffer);
 process_p shortest_job_first_scheduler(process_p *process_buffer);
-int compare(const void *a, const void *b);
+
+void sort_buffer(process_p *process_buffer);
+int sjf_sort(const void *a, const void *b);
+int fcfs_sort(const void *a, const void *b);
+int priority_sort(const void *a, const void *b);
+
 process_p *copy_process_buffer(process_p *process_buffer);
 process_p copy_process(process_p process);
 process_p get_process(process_p *process_buffer, int index);
@@ -86,7 +91,7 @@ int main()
     char *message2 = "Dispatching Thread";
     int iret1, iret2;
 
-    policy = SJF;
+    policy = FCFS;
 
     /* Initilize count, two buffer pionters */
     count = 0;
@@ -177,6 +182,8 @@ void *scheduler(void *ptr)
         buf_head++;
         buf_head %= CMD_BUF_SIZE;
 
+        sort_buffer(process_buffer);
+
         /* Unlock the shared command queue */
 
         // pthread_mutex_unlock(&cmd_queue_lock);
@@ -215,21 +222,7 @@ void *dispatcher(void *ptr)
         /* Run the command scheduled in the queue */
         count--;
 
-        process_p process;
-        switch (policy)
-        {
-        case FCFS:
-            process = first_come_first_serve_scheduler(process_buffer);
-            break;
-        case SJF:
-            process = shortest_job_first_scheduler(process_buffer);
-            break;
-        case PRIORITY:
-            break;
-        default:
-            printf("In dispatcher: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
-            process = process_buffer[buf_head];
-        }
+        process_p process = get_process(process_buffer, buf_tail);
 
         char *cmd = process->cmd;
         char *argv[] = {NULL};
@@ -265,17 +258,6 @@ process_p get_process(process_p *process_buffer, int index)
     return process_buffer[index];
 }
 
-/*
- * non-preemptive
- * 
- */
-process_p first_come_first_serve_scheduler(process_p *process_buffer)
-{
-    process_p ready = get_process(process_buffer, buf_tail);
-
-    return ready;
-}
-
 void print(process_p *process_buffer)
 {
     for (int i = 0; i < buf_head; i++)
@@ -283,29 +265,49 @@ void print(process_p *process_buffer)
         printf("Process: %s, remaining burst: %d\n", process_buffer[i]->cmd, process_buffer[i]->cpu_remaining_burst);
     }
 }
-process_p shortest_job_first_scheduler(process_p *process_buffer)
+
+void sort_buffer(process_p *process_buffer)
 {
-    // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]);
-    process_p *sorted_buffer = copy_process_buffer(process_buffer);
-    qsort(sorted_buffer, buf_head, sizeof(process_t), compare);
-    print(process_buffer);
-    printf("\n");
-    print(sorted_buffer);
-
-    printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
-
-    process_p ready = process_buffer[buf_tail];
-    // TODO deque
-    return ready;
+    void *sort;
+    switch (policy)
+    {
+    case FCFS:
+        sort = fcfs_sort;
+        break;
+    case SJF:
+        sort = sjf_sort;
+        break;
+    case PRIORITY:
+        sort = priority_sort;
+    }
+    qsort(process_buffer, buf_head, sizeof(process_p), sort);
 }
 
-int compare(const void *a, const void *b)
+int sjf_sort(const void *a, const void *b)
 {
 
-    process_p process_a = (process_p)a;
-    process_p process_b = (process_p)b;
+    process_p process_a = *(process_p *)a;
+    process_p process_b = *(process_p *)b;
 
     return (process_a->cpu_remaining_burst - process_b->cpu_remaining_burst);
+}
+
+int fcfs_sort(const void *a, const void *b)
+{
+
+    process_p process_a = *(process_p *)a;
+    process_p process_b = *(process_p *)b;
+
+    return (process_a->arrival_time - process_b->arrival_time);
+}
+
+int priority_sort(const void *a, const void *b)
+{
+
+    process_p process_a = *(process_p *)a;
+    process_p process_b = *(process_p *)b;
+
+    return (process_a->priority - process_b->priority);
 }
 
 process_p *copy_process_buffer(process_p *process_buffer)
