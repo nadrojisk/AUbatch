@@ -105,6 +105,7 @@ finished_process_p finished_process_buffer[8192];
 
 int main()
 {
+    srand(time(NULL));
     pthread_t scheduling_thread, dispatching_thread; /* Two concurrent threads */
     char *message1 = "Scheduling Thread";
     char *message2 = "Dispatching Thread";
