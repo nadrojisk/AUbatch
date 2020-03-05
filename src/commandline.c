@@ -22,7 +22,10 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-#include <commandline.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#include "aubatch.h"
 
 /* Error Code */
 #define EINVAL 1
@@ -67,7 +70,7 @@ static const cmd cmdtable[] = {
 /*
  * Command line main loop.
  */
-int commandline()
+int main()
 {
     char *buffer;
     size_t bufsize = 64;
@@ -99,9 +102,79 @@ int cmd_run(int nargs, char **args)
         return EINVAL;
     }
 
+    // setup IPC information
+    pid_t pid;
+    int fd1[2];
+    int fd2[2];
+    if (pipe(fd1) == -1)
+    {
+        fprintf(stderr, "Pipe Failed");
+        return 1;
+    }
+    if (pipe(fd2) == -1)
+    {
+        fprintf(stderr, "Pipe Failed");
+        return 1;
+    }
+    // fork running process
+    pid = fork();
+
+    if (pid < 0)
+    {
+        fprintf(stderr, "Fork Failed");
+        return 1;
+    }
+
+    if (pid == 0) //child
+    {
+        aubatch(nargs, args);
+    }
+
     /* Use execv to run the submitted job in AUbatch */
-    printf("use execv to run the job in AUbatch.\n");
+    // printf("use execv to run the job in AUbatch.\n");
     return 0; /* if succeed */
+}
+
+int aubatch(int argc, char **argv)
+{
+    srand(time(NULL));
+    pthread_t scheduling_thread, dispatching_thread; /* Two concurrent threads */
+    char *message1 = "Scheduling Thread";
+    char *message2 = "Dispatching Thread";
+    int iret1, iret2;
+
+    policy = SJF; // policy for scheduler
+    from_file = 1;
+
+    /* Initialize count, two buffer pointers */
+    count = 0;
+    buf_head = 0;
+    buf_tail = 0;
+    finished_head = 0;
+
+    /* Create two independent threads:command and dispatchers */
+
+    iret1 = pthread_create(&scheduling_thread, NULL, scheduler, (void *)message1);
+    iret2 = pthread_create(&dispatching_thread, NULL, dispatcher, (void *)message2);
+
+    /* Initialize the lock the two condition variables */
+    pthread_mutex_init(&cmd_queue_lock, NULL);
+    pthread_cond_init(&cmd_buf_not_full, NULL);
+    pthread_cond_init(&cmd_buf_not_empty, NULL);
+
+    /* Wait till threads are complete before main continues. Unless we  */
+    /* wait we run the risk of executing an exit which will terminate   */
+    /* the process and all threads before the threads have completed.   */
+    pthread_join(scheduling_thread, NULL);
+    pthread_join(dispatching_thread, NULL);
+
+    if (iret1)
+        printf("scheduling_thread returns: %d\n", iret1);
+    if (iret2)
+        printf("dispatching_thread returns: %d\n", iret1);
+
+    report_metrics();
+    exit(0);
 }
 
 /*

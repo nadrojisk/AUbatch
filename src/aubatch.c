@@ -104,7 +104,7 @@ void *scheduler(void *ptr)
         printf(">");
 
         if (from_file)
-            process_buffer[buf_head] = get_process_from_file("static.txt", i);
+            process_buffer[buf_head] = get_process_from_file("./res/static.txt", i);
         else
             process_buffer[buf_head] = get_process();
 
