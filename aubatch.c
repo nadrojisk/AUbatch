@@ -28,12 +28,12 @@ typedef unsigned int u_int;
 #define NUM_OF_CMD 5    /* The number of submitted jobs   */
 #define MAX_CMD_LEN 512 /* The longest scheduler length */
 
-enum
+enum scheduling_policies
 {
     FCFS,
     SJF,
     PRIORITY,
-} scheduling_policy;
+} policy;
 
 typedef struct
 {
@@ -43,6 +43,7 @@ typedef struct
     int cpu_remaining_burst;
     int priority;
     int interruptions;
+    int finish_time;
 
 } process_t;
 
@@ -55,12 +56,14 @@ typedef process_t *process_p;
 void print_message(char *ptr);
 void *scheduler(void *ptr);  /* To simulate job submissions and scheduling */
 void *dispatcher(void *ptr); /* To simulate job execution */
-char *first_come_first_serve_scheduler(process_p *process_buffer);
-char *shortest_job_first_scheduler(process_p *process_buffer);
-int compare(const process_p x, const process_p y);
+process_p first_come_first_serve_scheduler(process_p *process_buffer);
+process_p shortest_job_first_scheduler(process_p *process_buffer);
+int compare(const void *a, const void *b);
 process_p *copy_process_buffer(process_p *process_buffer);
 process_p copy_process(process_p process);
 process_p get_process(process_p *process_buffer, int index);
+void remove_newline(char *buffer);
+int run_process(int burst);
 
 pthread_mutex_t cmd_queue_lock; /* Lock for critical sections */
 
@@ -71,7 +74,10 @@ pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
 u_int buf_head;
 u_int buf_tail;
 u_int count;
+u_int finished_head;
+
 process_p process_buffer[CMD_BUF_SIZE];
+process_p finished_process_buffer[8192];
 
 int main()
 {
@@ -80,10 +86,13 @@ int main()
     char *message2 = "Dispatching Thread";
     int iret1, iret2;
 
+    policy = SJF;
+
     /* Initilize count, two buffer pionters */
     count = 0;
     buf_head = 0;
     buf_tail = 0;
+    finished_head = 0;
 
     /* Create two independent threads:command and dispatchers */
     iret1 = pthread_create(&scheduling_thread, NULL, scheduler, (void *)message1);
@@ -146,11 +155,12 @@ void *scheduler(void *ptr)
         char cmd_string[MAX_CMD_LEN];
         //fgets(&cmd_string, MAX_CMD_LEN, stdin); // why is this incorrect? i get a incompatible pointer type warning?
         fgets(cmd_string, MAX_CMD_LEN, stdin);
+        remove_newline(cmd_string);
 
         // load process structure
         strcpy(process->cmd, cmd_string);
         process->arrival_time = time(NULL);
-        process->cpu_burst = rand(); // TODO
+        process->cpu_burst = rand() % 10; // TODO
         process->cpu_remaining_burst = process->cpu_burst;
         process->priority = 0; // TODO
         process->interruptions = 0;
@@ -205,25 +215,34 @@ void *dispatcher(void *ptr)
         /* Run the command scheduled in the queue */
         count--;
 
-        char *cmd;
-        switch (scheduling_policy)
+        process_p process;
+        switch (policy)
         {
         case FCFS:
-            cmd = first_come_first_serve_scheduler(process_buffer);
+            process = first_come_first_serve_scheduler(process_buffer);
             break;
         case SJF:
-            cmd = shortest_job_first_scheduler(process_buffer);
+            process = shortest_job_first_scheduler(process_buffer);
             break;
         case PRIORITY:
             break;
         default:
             printf("In dispatcher: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
-            cmd = process_buffer[buf_head]->cmd;
+            process = process_buffer[buf_head];
         }
+
+        char *cmd = process->cmd;
         char *argv[] = {NULL};
         execv(cmd, argv);
+
+        // TODO check if process is done, if not, put back on the buffer
         /* Free the dynamically allocated memory for the buffer */
-        free(cmd);
+
+        // fcfs example, can run and does not worry about getting booted off
+        int burst = run_process(process->cpu_remaining_burst);
+        process->finish_time = time(NULL);
+        process->cpu_remaining_burst -= burst;
+        finished_process_buffer[finished_head] = process;
 
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
@@ -246,43 +265,53 @@ process_p get_process(process_p *process_buffer, int index)
     return process_buffer[index];
 }
 
-char *first_come_first_serve_scheduler(process_p *process_buffer)
+/*
+ * non-preemptive
+ * 
+ */
+process_p first_come_first_serve_scheduler(process_p *process_buffer)
 {
     process_p ready = get_process(process_buffer, buf_tail);
 
-    return ready->cmd;
+    return ready;
 }
 
-char *shortest_job_first_scheduler(process_p *process_buffer)
+void print(process_p *process_buffer)
+{
+    for (int i = 0; i < buf_head; i++)
+    {
+        printf("Process: %s, remaining burst: %d\n", process_buffer[i]->cmd, process_buffer[i]->cpu_remaining_burst);
+    }
+}
+process_p shortest_job_first_scheduler(process_p *process_buffer)
 {
     // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]);
     process_p *sorted_buffer = copy_process_buffer(process_buffer);
-    qsort(sorted_buffer, CMD_BUF_SIZE, sizeof(process_t), (void *)compare);
+    qsort(sorted_buffer, buf_head, sizeof(process_t), compare);
+    print(process_buffer);
+    printf("\n");
+    print(sorted_buffer);
 
     printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
     process_p ready = process_buffer[buf_tail];
     // TODO deque
-    return ready->cmd;
+    return ready;
 }
 
-int compare(const process_p x, const process_p y)
+int compare(const void *a, const void *b)
 {
-    int a = x->cpu_remaining_burst;
-    int b = y->cpu_remaining_burst;
 
-    if (a < b)
-        return -1;
-    if (a > b)
-        return 1;
-    if (a == b)
-        return 0;
+    process_p process_a = (process_p)a;
+    process_p process_b = (process_p)b;
+
+    return (process_a->cpu_remaining_burst - process_b->cpu_remaining_burst);
 }
 
 process_p *copy_process_buffer(process_p *process_buffer)
 {
-    process_p *new_process_buffer = malloc(sizeof(new_process_buffer));
-    for (int i = 0; i < CMD_BUF_SIZE; i++)
+    process_p *new_process_buffer = malloc(sizeof(new_process_buffer) * buf_head);
+    for (int i = 0; i < buf_head; i++)
     {
         process_p tmp = process_buffer[i];
         process_p new_process = copy_process(tmp);
@@ -303,28 +332,18 @@ process_p copy_process(process_p process)
 
     return new_process;
 }
-// ProcessControlBlock *SJF_Scheduler() {
-//   /* Select Process with Shortest Remaining Time*/
-//   ProcessControlBlock *minimumProcess = (ProcessControlBlock *) DequeueProcess(READYQUEUE);
-//   if(minimumProcess){
-//     ProcessControlBlock *compareProcess = DequeueProcess(READYQUEUE);
-//     ProcessControlBlock *originalProcess = minimumProcess;    //add original process to use later for a check to see if loop is done
-//     while(compareProcess){
-//       if(compareProcess->RemainingCpuBurstTime < minimumProcess->RemainingCpuBurstTime){ //compare current process with relative min time process
-//         EnqueueProcess(READYQUEUE, minimumProcess);  //makes sure to put process back on queue if its no long min
-//         minimumProcess = compareProcess;
-//       }
-//       else{       //make sure to put compareProcess back on ready queue if not picked
-//         EnqueueProcess(READYQUEUE, compareProcess);
-//       }
-//       if(originalProcess->ProcessID == compareProcess->ProcessID){   //add in check to make sure to not endlessly loop
-//         if(minimumProcess->ProcessID != compareProcess->ProcessID){ //if the chosen process is not the current process put the current back on the queue
-//           EnqueueProcess(READYQUEUE, compareProcess);
-//         }
-//         break;
-//       }
-//       compareProcess = DequeueProcess(READYQUEUE);
-//     }
-//   }
-//   return(minimumProcess);
-// }
+
+int run_process(int burst)
+{
+    sleep(burst);
+    return burst;
+}
+
+void remove_newline(char *buffer)
+{
+    int string_length = strlen(buffer);
+    if (buffer[string_length - 1] == '\n')
+    {
+        buffer[string_length - 1] = '\0';
+    }
+}
