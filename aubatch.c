@@ -150,16 +150,10 @@ int main()
  */
 void *scheduler(void *ptr)
 {
-
-    char *cmd;
-    u_int i;
-    char num_str[8];
-    size_t command_size;
-
     print_message((char *)ptr);
 
     /* Enter multiple commands in the queue to be scheduled */
-    for (i = 0; i < NUM_OF_CMD; i++)
+    for (int i = 0; i < NUM_OF_CMD; i++)
     {
 
         /* lock the shared command queue */
@@ -214,6 +208,7 @@ void *scheduler(void *ptr)
         pthread_cond_signal(&cmd_buf_not_empty);
         pthread_mutex_unlock(&cmd_queue_lock);
     }
+    return (void *)NULL;
 }
 
 /*
@@ -268,6 +263,7 @@ void *dispatcher(void *ptr)
         /* Unlok the shared command queue */
         pthread_mutex_unlock(&cmd_queue_lock);
     }
+    return (void *)NULL;
 }
 
 void complete_process(process_p process)
