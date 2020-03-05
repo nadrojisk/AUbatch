@@ -43,12 +43,27 @@ typedef struct
     int cpu_remaining_burst;
     int priority;
     int interruptions;
-    int finish_time;
+    int first_time_on_cpu;
 
 } process_t;
 
-typedef process_t *process_p;
+typedef struct
+{
+    char cmd[MAX_CMD_LEN];
+    time_t arrival_time;
+    int cpu_burst;
+    int first_time_on_cpu;
+    int priority;
+    int interruptions;
+    int finish_time;
+    int turnaround_time;
+    int waiting_time;
+    int response_time;
 
+} finished_process_t;
+
+typedef process_t *process_p;
+typedef finished_process_t *finished_process_p;
 /* 
  * When a job is submitted, the job must be compiled before it
  * is running by the dispatcher thread (see also dispatcher()).
@@ -70,6 +85,10 @@ process_p get_process(process_p *process_buffer, int index);
 void remove_newline(char *buffer);
 int run_process(int burst);
 
+void complete_process(process_p process);
+void report_metrics();
+char *print_time(time_t time);
+
 pthread_mutex_t cmd_queue_lock; /* Lock for critical sections */
 
 pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
@@ -82,7 +101,7 @@ u_int count;
 u_int finished_head;
 
 process_p process_buffer[CMD_BUF_SIZE];
-process_p finished_process_buffer[8192];
+finished_process_p finished_process_buffer[8192];
 
 int main()
 {
@@ -116,6 +135,8 @@ int main()
 
     printf("scheduling_thread returns: %d\n", iret1);
     printf("dispatching_thread returns: %d\n", iret1);
+
+    report_metrics();
     exit(0);
 }
 
@@ -152,7 +173,7 @@ void *scheduler(void *ptr)
         /* Dynamically create a buffer slot to hold a scheduler */
 
         // pthread_mutex_unlock(&cmd_queue_lock);
-        process_p process = malloc(sizeof(process));
+        process_p process = malloc(sizeof(process_t));
 
         printf("Please submit a batch processing job:\n");
         printf(">");
@@ -165,9 +186,9 @@ void *scheduler(void *ptr)
         // load process structure
         strcpy(process->cmd, cmd_string);
         process->arrival_time = time(NULL);
-        process->cpu_burst = rand() % 10; // TODO
+        process->cpu_burst = rand() % 9 + 1; // TODO
         process->cpu_remaining_burst = process->cpu_burst;
-        process->priority = 0; // TODO
+        process->priority = rand() % 5; // TODO
         process->interruptions = 0;
 
         process_buffer[buf_head] = process;
@@ -233,9 +254,10 @@ void *dispatcher(void *ptr)
 
         // fcfs example, can run and does not worry about getting booted off
         int burst = run_process(process->cpu_remaining_burst);
-        process->finish_time = time(NULL);
+        // process->finish_time = time(NULL);
         process->cpu_remaining_burst -= burst;
-        finished_process_buffer[finished_head] = process;
+
+        complete_process(process);
 
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
@@ -247,6 +269,61 @@ void *dispatcher(void *ptr)
     }
 }
 
+void complete_process(process_p process)
+{
+    finished_process_p finished_process = malloc(sizeof(finished_process_t));
+    finished_process->finish_time = time(NULL);
+    strcpy(finished_process->cmd, process->cmd);
+    finished_process->arrival_time = process->arrival_time;
+    finished_process->cpu_burst = process->cpu_burst;
+    finished_process->interruptions = process->interruptions;
+    finished_process->priority = process->priority;
+    finished_process->first_time_on_cpu = process->first_time_on_cpu;
+    finished_process->turnaround_time = finished_process->finish_time - finished_process->arrival_time;
+    finished_process->waiting_time = finished_process->turnaround_time - finished_process->cpu_burst;
+    finished_process->response_time = finished_process->first_time_on_cpu - finished_process->arrival_time;
+
+    finished_process_buffer[finished_head] = finished_process;
+    finished_head++;
+}
+
+void report_metrics()
+{
+    char str_policy[32];
+    switch (policy)
+    {
+    case FCFS:
+        strcpy(str_policy, "First Come First Serve");
+        break;
+    case SJF:
+        strcpy(str_policy, "Shortest Job First");
+        break;
+    case PRIORITY:
+        strcpy(str_policy, "Priority");
+        break;
+    }
+
+    printf("\n=== Reporting Metrics for %s ===\n\n", str_policy);
+    finished_process_p finished_process;
+    for (int i = 0; i < finished_head; i++)
+    {
+        finished_process = finished_process_buffer[i];
+
+        printf("Metrics for %s:\n", finished_process->cmd);
+        printf("\tCPU Burst:         %d\n", finished_process->cpu_burst);
+        printf("\tInterruptions:     %d\n", finished_process->interruptions);
+        printf("\tPriority:          %d\n", finished_process->priority);
+
+        printf("\tArrival Time:      %s", print_time(finished_process->arrival_time));
+        printf("\tFirst Time on CPU: %s", print_time(finished_process->first_time_on_cpu));
+        printf("\tFinish Time:       %s", print_time(finished_process->finish_time));
+
+        printf("\tTurnaround Time:   %d\n", finished_process->turnaround_time);
+        printf("\tWaiting Time:      %d\n", finished_process->waiting_time);
+        printf("\tResponse Time:     %d\n", finished_process->response_time);
+        printf("\n");
+    }
+}
 void print_message(char *ptr)
 {
     printf("%s \n", ptr);
@@ -255,6 +332,7 @@ void print_message(char *ptr)
 process_p get_process(process_p *process_buffer, int index)
 {
     printf("In dispatcher: process_buffer[%d] = %s\n", index, process_buffer[index]->cmd);
+    process_buffer[index]->first_time_on_cpu = time(NULL);
     return process_buffer[index];
 }
 
@@ -348,4 +426,9 @@ void remove_newline(char *buffer)
     {
         buffer[string_length - 1] = '\0';
     }
+}
+
+char *print_time(time_t time)
+{
+    return asctime(localtime(&time));
 }
