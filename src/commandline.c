@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include "aubatch.h"
+#include "commandline.h"
 
 /* Error Code */
 #define EINVAL 1
@@ -40,12 +40,20 @@ int cmd_quit(int nargs, char **args);
 void showmenu(const char *name, const char *x[]);
 int cmd_helpmenu(int n, char **a);
 int cmd_dispatch(char *cmd);
-int commandline();
+void *commandline(void *ptr);
+int cmd_priority();
+int cmd_fcfs();
+int cmd_sjf();
+int cmd_list();
 
 static const char *helpmenu[] = {
     "[run] <job> <time> <priority>       ",
     "[quit] Exit AUbatch                 ",
     "[help] Print help menu              ",
+    "[fcfs] Changes scheduler to FCFS",
+    "[sjf] Changes scheduler to SJF",
+    "[priority] Changes scheduler to Priority",
+
     /* Please add more menu options below */
     NULL};
 
@@ -64,14 +72,21 @@ static const cmd cmdtable[] = {
     {"run", cmd_run},
     {"q\n", cmd_quit},
     {"quit\n", cmd_quit},
+    {"fcfs\n", cmd_fcfs},
+    {"sjf\n", cmd_sjf},
+    {"priority\n", cmd_priority},
+    {"list\n", cmd_list},
+    {"ls\n", cmd_list},
     /* Please add more operations below. */
     {NULL, NULL}};
 
 /*
  * Command line main loop.
  */
-int main()
+void *commandline(void *ptr)
 {
+    printf("%s \n", (char *)ptr);
+
     char *buffer;
     size_t bufsize = 64;
 
@@ -88,7 +103,7 @@ int main()
         getline(&buffer, &bufsize, stdin);
         cmd_dispatch(buffer);
     }
-    return 0;
+    return (void *)NULL;
 }
 
 /*
@@ -102,79 +117,11 @@ int cmd_run(int nargs, char **args)
         return EINVAL;
     }
 
-    // setup IPC information
-    pid_t pid;
-    int fd1[2];
-    int fd2[2];
-    if (pipe(fd1) == -1)
-    {
-        fprintf(stderr, "Pipe Failed");
-        return 1;
-    }
-    if (pipe(fd2) == -1)
-    {
-        fprintf(stderr, "Pipe Failed");
-        return 1;
-    }
-    // fork running process
-    pid = fork();
-
-    if (pid < 0)
-    {
-        fprintf(stderr, "Fork Failed");
-        return 1;
-    }
-
-    if (pid == 0) //child
-    {
-        aubatch(nargs, args);
-    }
+    scheduler(nargs, args);
 
     /* Use execv to run the submitted job in AUbatch */
     // printf("use execv to run the job in AUbatch.\n");
     return 0; /* if succeed */
-}
-
-int aubatch(int argc, char **argv)
-{
-    srand(time(NULL));
-    pthread_t scheduling_thread, dispatching_thread; /* Two concurrent threads */
-    char *message1 = "Scheduling Thread";
-    char *message2 = "Dispatching Thread";
-    int iret1, iret2;
-
-    policy = SJF; // policy for scheduler
-    from_file = 1;
-
-    /* Initialize count, two buffer pointers */
-    count = 0;
-    buf_head = 0;
-    buf_tail = 0;
-    finished_head = 0;
-
-    /* Create two independent threads:command and dispatchers */
-
-    iret1 = pthread_create(&scheduling_thread, NULL, scheduler, (void *)message1);
-    iret2 = pthread_create(&dispatching_thread, NULL, dispatcher, (void *)message2);
-
-    /* Initialize the lock the two condition variables */
-    pthread_mutex_init(&cmd_queue_lock, NULL);
-    pthread_cond_init(&cmd_buf_not_full, NULL);
-    pthread_cond_init(&cmd_buf_not_empty, NULL);
-
-    /* Wait till threads are complete before main continues. Unless we  */
-    /* wait we run the risk of executing an exit which will terminate   */
-    /* the process and all threads before the threads have completed.   */
-    pthread_join(scheduling_thread, NULL);
-    pthread_join(dispatching_thread, NULL);
-
-    if (iret1)
-        printf("scheduling_thread returns: %d\n", iret1);
-    if (iret2)
-        printf("dispatching_thread returns: %d\n", iret1);
-
-    report_metrics();
-    exit(0);
 }
 
 /*
@@ -182,7 +129,8 @@ int aubatch(int argc, char **argv)
  */
 int cmd_quit(int nargs, char **args)
 {
-    printf("Please display performance information before exiting AUbatch!\n");
+    report_metrics();
+    // printf("Please display performance information before exiting AUbatch!\n");
     exit(0);
 }
 
@@ -229,8 +177,8 @@ int cmd_helpmenu(int n, char **a)
  */
 int cmd_dispatch(char *cmd)
 {
-    time_t beforesecs, aftersecs, secs;
-    u_int32_t beforensecs, afternsecs, nsecs;
+    // time_t beforesecs, aftersecs, secs;
+    // u_int32_t beforensecs, afternsecs, nsecs;
     char *args[MAXMENUARGS];
     int nargs = 0;
     char *word;
@@ -269,4 +217,39 @@ int cmd_dispatch(char *cmd)
 
     printf("%s: Command not found\n", args[0]);
     return EINVAL;
+}
+
+int cmd_priority()
+{
+    policy = PRIORITY;
+    return 0;
+}
+int cmd_sjf()
+{
+    policy = SJF;
+    return 0;
+}
+int cmd_fcfs()
+{
+    policy = FCFS;
+    return 0;
+}
+
+int cmd_list()
+{
+    printf("Name CPU_Time Pri Arrival_time             Progress\n");
+    for (int i = buf_tail; i < buf_head; i++)
+    {
+
+        process_p process = process_buffer[i];
+        char *time = convert_time(process->arrival_time);
+        remove_newline(time);
+        printf("%4s %8d %3d %s ---\n",
+               process->cmd,
+               process->cpu_burst,
+               process->priority,
+               time);
+    }
+    printf("\n");
+    return 0;
 }

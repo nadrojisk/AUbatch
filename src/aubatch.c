@@ -22,57 +22,13 @@ pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
 pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
 
 /* Global shared variables */
-u_int buf_head;
-u_int buf_tail;
+
 u_int count;
 u_int finished_head;
 
 int from_file;
 
-process_p process_buffer[CMD_BUF_SIZE];
 finished_process_p finished_process_buffer[8192];
-
-int main(int argc, char **argv)
-{
-    srand(time(NULL));
-    pthread_t scheduling_thread, dispatching_thread; /* Two concurrent threads */
-    char *message1 = "Scheduling Thread";
-    char *message2 = "Dispatching Thread";
-    int iret1, iret2;
-
-    policy = SJF; // policy for scheduler
-    from_file = 1;
-
-    /* Initialize count, two buffer pointers */
-    count = 0;
-    buf_head = 0;
-    buf_tail = 0;
-    finished_head = 0;
-
-    /* Create two independent threads:command and dispatchers */
-
-    iret1 = pthread_create(&scheduling_thread, NULL, scheduler, (void *)message1);
-    iret2 = pthread_create(&dispatching_thread, NULL, dispatcher, (void *)message2);
-
-    /* Initialize the lock the two condition variables */
-    pthread_mutex_init(&cmd_queue_lock, NULL);
-    pthread_cond_init(&cmd_buf_not_full, NULL);
-    pthread_cond_init(&cmd_buf_not_empty, NULL);
-
-    /* Wait till threads are complete before main continues. Unless we  */
-    /* wait we run the risk of executing an exit which will terminate   */
-    /* the process and all threads before the threads have completed.   */
-    pthread_join(scheduling_thread, NULL);
-    pthread_join(dispatching_thread, NULL);
-
-    if (iret1)
-        printf("scheduling_thread returns: %d\n", iret1);
-    if (iret2)
-        printf("dispatching_thread returns: %d\n", iret1);
-
-    report_metrics();
-    exit(0);
-}
 
 /* 
  * This function simulates a terminal where users may 
@@ -81,67 +37,54 @@ int main(int argc, char **argv)
  * If you intend to create a thread from a function 
  * with input parameters, please follow this example.
  */
-void *scheduler(void *ptr)
+
+void scheduler(int argc, char **argv)
 {
-    printf("%s \n", (char *)ptr);
-
-    /* Enter multiple commands in the queue to be scheduled */
-    for (int i = 0; i < NUM_OF_CMD; i++)
+    /* lock the shared command queue */
+    pthread_mutex_lock(&cmd_queue_lock);
+#ifdef VERBOSE
+    printf("In scheduler: count = %d\n", count);
+#endif
+    while (count == CMD_BUF_SIZE)
     {
-
-        /* lock the shared command queue */
-        pthread_mutex_lock(&cmd_queue_lock);
-        printf("In scheduler: count = %d\n", count);
-
-        while (count == CMD_BUF_SIZE)
-        {
-            pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
-        }
-
-        // pthread_mutex_unlock(&cmd_queue_lock);  //uncomment if you want the dispatcher to run while scheduler is loading
-
-        printf("Please submit a batch processing job:\n");
-        printf(">");
-
-        if (from_file)
-            process_buffer[buf_head] = get_process_from_file("./res/static.txt", i);
-        else
-            process_buffer[buf_head] = get_process();
-
-        // pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
-
-        printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
-
-        count++;
-
-        /* Move buf_head forward, this is a circular queue */
-        buf_head++;
-        buf_head %= CMD_BUF_SIZE;
-
-        sort_buffer(process_buffer);
-
-        /* Unlock the shared command queue */
-
-        pthread_cond_signal(&cmd_buf_not_empty);
-        pthread_mutex_unlock(&cmd_queue_lock);
+        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
     }
-    return (void *)NULL;
+
+    pthread_mutex_unlock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+    if (argc == 4)
+        process_buffer[buf_head] = get_process(argv);
+    else
+        process_buffer[buf_head] = get_process_from_file(argv, buf_head);
+
+    pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+#ifdef VERBOSE
+    printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
+#endif
+    count++;
+
+    /* Move buf_head forward, this is a circular queue */
+    buf_head++;
+    buf_head %= CMD_BUF_SIZE;
+
+    sort_buffer(process_buffer);
+
+    /* Unlock the shared command queue */
+
+    pthread_cond_signal(&cmd_buf_not_empty);
+    pthread_mutex_unlock(&cmd_queue_lock);
 }
 
-process_p get_process()
+process_p get_process(char **argv)
 {
     process_p process = malloc(sizeof(process_t));
-    char cmd_string[MAX_CMD_LEN];
-    //fgets(&cmd_string, MAX_CMD_LEN, stdin); // why is this incorrect? i get a incompatible pointer type warning?
-    fgets(cmd_string, MAX_CMD_LEN, stdin);
-    remove_newline(cmd_string);
+    remove_newline(argv[3]);
 
     // load process structure
-    strcpy(process->cmd, cmd_string);
+    strcpy(process->cmd, argv[1]);
     process->arrival_time = time(NULL);
-    process->cpu_burst = rand() % 9 + 1; // TODO
+    process->cpu_burst = atoi(argv[2]); // TODO
     process->cpu_remaining_burst = process->cpu_burst;
-    process->priority = rand() % 5; // TODO
+    process->priority = atoi(argv[3]); // TODO
     process->interruptions = 0;
     return process;
 }
@@ -159,12 +102,12 @@ void skip_ahead(FILE *file, int index)
     } while ((c = fgetc(file)) != EOF);
 }
 
-process_p get_process_from_file(char *filename, int index)
+process_p get_process_from_file(char **filename, int index)
 {
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = fopen(filename[0], "r");
     if (fp == NULL)
     {
-        printf("Error %s could not be found", filename);
+        printf("Error %s could not be found", filename[0]);
         exit(1);
     }
 
@@ -214,8 +157,9 @@ void *dispatcher(void *ptr)
 
         /* lock and unlock for the shared process queue */
         pthread_mutex_lock(&cmd_queue_lock);
+#ifdef VERBOSE
         printf("In dispatcher: count = %d\n", count);
-
+#endif
         while (count == 0)
         {
             pthread_cond_wait(&cmd_buf_not_empty, &cmd_queue_lock);
@@ -223,8 +167,9 @@ void *dispatcher(void *ptr)
 
         /* Run the command scheduled in the queue */
         count--;
-
+#ifdef VERBOSE
         printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
+#endif
         process_buffer[buf_tail]->first_time_on_cpu = time(NULL);
 
         process_p process = process_buffer[buf_tail];
@@ -233,30 +178,25 @@ void *dispatcher(void *ptr)
         char *argv[] = {NULL};
         execv(cmd, argv);
 
-        // TODO check if process is done, if not, put back on the buffer
-        /* Free the dynamically allocated memory for the buffer */
-
-        // fcfs example, can run and does not worry about getting booted off
-        int burst = run_process(process->cpu_remaining_burst);
-        // process->finish_time = time(NULL);
-        process->cpu_remaining_burst -= burst;
-
-        complete_process(process);
-
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
-        free(process);
 
+        /* Free the dynamically allocated memory for the buffer */
         pthread_cond_signal(&cmd_buf_not_full);
         /* Unlock the shared command queue */
         pthread_mutex_unlock(&cmd_queue_lock);
+
+        complete_process(process);
     }
     return (void *)NULL;
 }
 
 void complete_process(process_p process)
 {
+    int burst = run_process(process->cpu_remaining_burst);
+    process->cpu_remaining_burst -= burst;
+
     finished_process_p finished_process = malloc(sizeof(finished_process_t));
     finished_process->finish_time = time(NULL);
     strcpy(finished_process->cmd, process->cmd);
@@ -271,6 +211,8 @@ void complete_process(process_p process)
 
     finished_process_buffer[finished_head] = finished_process;
     finished_head++;
+
+    free(process);
 }
 
 void report_metrics()

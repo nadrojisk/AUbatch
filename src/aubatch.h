@@ -47,16 +47,16 @@ typedef struct
 typedef process_t *process_p;
 typedef finished_process_t *finished_process_p;
 
-void *scheduler(void *ptr);  /* To simulate job submissions and scheduling */
-void *dispatcher(void *ptr); /* To simulate job execution */
+void scheduler(int argc, char **argv); /* To simulate job submissions and scheduling */
+void *dispatcher(void *ptr);           /* To simulate job execution */
 
 void sort_buffer(process_p *process_buffer);          /* sorts process buffer depending on scheduler */
 int sjf_scheduler(const void *a, const void *b);      /* sorts buffer by remaining cpu burst */
 int fcfs_scheduler(const void *a, const void *b);     /* sorts buffer by arrival time */
 int priority_scheduler(const void *a, const void *b); /* sorts buffer by priority */
 
-process_p get_process();
-process_p get_process_from_file(char *filename, int index);
+process_p get_process(char **argv);
+process_p get_process_from_file(char **filename, int index);
 int run_process(int burst);               /* sleeps for burst seconds */
 void complete_process(process_p process); /* copys process to completed process buffer */
 
@@ -64,3 +64,8 @@ void report_metrics(); /* loops through completed process buffer and prints metr
 
 char *convert_time(time_t time);   /* convers from epoch time to human readable string */
 void remove_newline(char *buffer); /* pulls newline off of string read from user input*/
+
+u_int buf_head;
+u_int buf_tail;
+
+process_p process_buffer[CMD_BUF_SIZE];
