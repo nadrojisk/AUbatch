@@ -17,10 +17,6 @@
 
 #include "commandline.h"
 
-pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
-pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
-pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
-
 /* Global shared variables */
 u_int buf_head;
 u_int buf_tail;
