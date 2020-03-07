@@ -238,17 +238,44 @@ int cmd_fcfs()
 int cmd_list()
 {
     printf("Name CPU_Time Pri Arrival_time             Progress\n");
-    for (int i = buf_tail; i < buf_head; i++)
+    for (int i = 0; i < finished_head; i++)
     {
 
-        process_p process = process_buffer[i];
+        finished_process_p process = finished_process_buffer[i];
+        char *status = "finished";
+
         char *time = convert_time(process->arrival_time);
         remove_newline(time);
-        printf("%4s %8d %3d %s ---\n",
+        printf("%4s %8d %3d %s %s\n",
                process->cmd,
                process->cpu_burst,
                process->priority,
-               time);
+               time,
+               status);
+    }
+
+    for (int i = 0; i < buf_head; i++)
+    {
+
+        process_p process = process_buffer[i];
+        char *status = "-------";
+        if (process->cpu_remaining_burst == 0)
+        {
+            continue;
+        }
+        else if (process->first_time_on_cpu > 0 && process->cpu_remaining_burst > 0)
+        {
+            status = "running ";
+        }
+
+        char *time = convert_time(process->arrival_time);
+        remove_newline(time);
+        printf("%4s %8d %3d %s %s\n",
+               process->cmd,
+               process->cpu_burst,
+               process->priority,
+               time,
+               status);
     }
     printf("\n");
     return 0;
