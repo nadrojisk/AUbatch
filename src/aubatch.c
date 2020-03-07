@@ -261,6 +261,7 @@ void report_metrics()
     int total_waiting_time = 0;
     int total_turnaround_time = 0;
     int total_response_time = 0;
+    int total_cpu_burst = 0;
 
     int max_waiting_time = INT_MIN;
     int min_waiting_time = INT_MAX;
@@ -268,6 +269,8 @@ void report_metrics()
     int min_response_time = INT_MAX;
     int max_turnaround_time = INT_MIN;
     int min_turnaround_time = INT_MAX;
+    int max_cpu_burst = INT_MIN;
+    int min_cpu_burst = INT_MAX;
 
     char str_policy[32];
     switch (policy)
@@ -290,7 +293,7 @@ void report_metrics()
     {
         finished_process = finished_process_buffer[i];
 
-        printf("Metrics for %s:\n", finished_process->cmd);
+        printf("Metrics for job %s:\n", finished_process->cmd);
         printf("\tCPU Burst:           %d\n", finished_process->cpu_burst);
         printf("\tInterruptions:       %d\n", finished_process->interruptions);
         printf("\tPriority:            %d\n", finished_process->priority);
@@ -310,6 +313,8 @@ void report_metrics()
             min_turnaround_time = finished_process->turnaround_time;
         if (finished_process->response_time < min_response_time)
             min_response_time = finished_process->response_time;
+        if (finished_process->cpu_burst < min_cpu_burst)
+            min_cpu_burst = finished_process->cpu_burst;
 
         if (finished_process->waiting_time > max_waiting_time)
             max_waiting_time = finished_process->waiting_time;
@@ -317,25 +322,36 @@ void report_metrics()
             max_turnaround_time = finished_process->turnaround_time;
         if (finished_process->response_time > max_response_time)
             max_response_time = finished_process->response_time;
+        if (finished_process->cpu_burst > max_cpu_burst)
+            max_cpu_burst = finished_process->cpu_burst;
 
         total_response_time += finished_process->response_time;
         total_waiting_time += finished_process->waiting_time;
         total_turnaround_time += finished_process->turnaround_time;
+        total_cpu_burst += finished_process->cpu_burst;
     }
 
     printf("Overall Metrics for Batch:\n");
-    printf("\tAverage Turnaround Time: %f\n", total_turnaround_time / (float)i);
-    printf("\tAverage Waiting Time:    %f\n", total_waiting_time / (float)i);
-    printf("\tAverage Response Time:   %f\n\n", total_response_time / (float)i);
+    printf("\tTotal Number of Jobs Completed: %d\n", finished_head);
+    printf("\tTotal Number of Jobs Submitted: %d\n", finished_head + (buf_head - buf_tail));
+    printf("\tAverage Turnaround Time:        %f seconds\n", total_turnaround_time / (float)i);
+    printf("\tAverage Waiting Time:           %f seconds\n", total_waiting_time / (float)i);
+    printf("\tAverage Response Time:          %f seconds\n", total_response_time / (float)i);
+    printf("\tAverage CPU Burst:              %f seconds\n", total_cpu_burst / (float)i);
+    printf("\tTotal CPU Burst:                %d seconds\n", total_cpu_burst);
+    printf("\tThroughput:                     %f No./second\n", 1 / (total_turnaround_time / (float)i));
 
-    printf("\tMax Turnaround Time:     %d\n", max_turnaround_time);
-    printf("\tMin Turnaround Time:     %d\n\n", min_turnaround_time);
+    printf("\tMax Turnaround Time:            %d \n", max_turnaround_time);
+    printf("\tMin Turnaround Time:            %d\n\n", min_turnaround_time);
 
-    printf("\tMax Waiting Time:        %d\n", max_waiting_time);
-    printf("\tMin Waiting Time:        %d\n\n", min_waiting_time);
+    printf("\tMax Waiting Time:               %d\n", max_waiting_time);
+    printf("\tMin Waiting Time:               %d\n\n", min_waiting_time);
 
-    printf("\tMax Response Time:       %d\n", max_response_time);
-    printf("\tMin Response Time:       %d\n\n", min_response_time);
+    printf("\tMax Response Time:              %d\n", max_response_time);
+    printf("\tMin Response Time:              %d\n\n", min_response_time);
+
+    printf("\tMax CPU Burst:                  %d\n", max_cpu_burst);
+    printf("\tMin CPU Burst:                  %d\n\n", min_cpu_burst);
 }
 
 void sort_buffer(process_p *process_buffer)
