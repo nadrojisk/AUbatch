@@ -294,17 +294,17 @@ void report_metrics()
         finished_process = finished_process_buffer[i];
 
         printf("Metrics for job %s:\n", finished_process->cmd);
-        printf("\tCPU Burst:           %d\n", finished_process->cpu_burst);
-        printf("\tInterruptions:       %d\n", finished_process->interruptions);
+        printf("\tCPU Burst:           %d seconds\n", finished_process->cpu_burst);
+        printf("\tInterruptions:       %d times\n", finished_process->interruptions);
         printf("\tPriority:            %d\n", finished_process->priority);
 
         printf("\tArrival Time:        %s", convert_time(finished_process->arrival_time));
         printf("\tFirst Time on CPU:   %s", convert_time(finished_process->first_time_on_cpu));
         printf("\tFinish Time:         %s", convert_time(finished_process->finish_time));
 
-        printf("\tTurnaround Time:     %d\n", finished_process->turnaround_time);
-        printf("\tWaiting Time:        %d\n", finished_process->waiting_time);
-        printf("\tResponse Time:       %d\n", finished_process->response_time);
+        printf("\tTurnaround Time:     %d seconds\n", finished_process->turnaround_time);
+        printf("\tWaiting Time:        %d seconds\n", finished_process->waiting_time);
+        printf("\tResponse Time:       %d seconds\n", finished_process->response_time);
         printf("\n");
 
         if (finished_process->waiting_time < min_waiting_time)
@@ -334,24 +334,24 @@ void report_metrics()
     printf("Overall Metrics for Batch:\n");
     printf("\tTotal Number of Jobs Completed: %d\n", finished_head);
     printf("\tTotal Number of Jobs Submitted: %d\n", finished_head + (buf_head - buf_tail));
-    printf("\tAverage Turnaround Time:        %f seconds\n", total_turnaround_time / (float)i);
-    printf("\tAverage Waiting Time:           %f seconds\n", total_waiting_time / (float)i);
-    printf("\tAverage Response Time:          %f seconds\n", total_response_time / (float)i);
-    printf("\tAverage CPU Burst:              %f seconds\n", total_cpu_burst / (float)i);
+    printf("\tAverage Turnaround Time:        %.3f seconds\n", total_turnaround_time / (float)i);
+    printf("\tAverage Waiting Time:           %.3f seconds\n", total_waiting_time / (float)i);
+    printf("\tAverage Response Time:          %.3f seconds\n", total_response_time / (float)i);
+    printf("\tAverage CPU Burst:              %.3f seconds\n", total_cpu_burst / (float)i);
     printf("\tTotal CPU Burst:                %d seconds\n", total_cpu_burst);
-    printf("\tThroughput:                     %f No./second\n", 1 / (total_turnaround_time / (float)i));
+    printf("\tThroughput:                     %.3f No./second\n", 1 / (total_turnaround_time / (float)i));
 
-    printf("\tMax Turnaround Time:            %d \n", max_turnaround_time);
-    printf("\tMin Turnaround Time:            %d\n\n", min_turnaround_time);
+    printf("\tMax Turnaround Time:            %d seconds\n", max_turnaround_time);
+    printf("\tMin Turnaround Time:            %d seconds\n\n", min_turnaround_time);
 
-    printf("\tMax Waiting Time:               %d\n", max_waiting_time);
-    printf("\tMin Waiting Time:               %d\n\n", min_waiting_time);
+    printf("\tMax Waiting Time:               %d seconds\n", max_waiting_time);
+    printf("\tMin Waiting Time:               %d seconds\n\n", min_waiting_time);
 
-    printf("\tMax Response Time:              %d\n", max_response_time);
-    printf("\tMin Response Time:              %d\n\n", min_response_time);
+    printf("\tMax Response Time:              %d seconds\n", max_response_time);
+    printf("\tMin Response Time:              %d seconds\n\n", min_response_time);
 
-    printf("\tMax CPU Burst:                  %d\n", max_cpu_burst);
-    printf("\tMin CPU Burst:                  %d\n\n", min_cpu_burst);
+    printf("\tMax CPU Burst:                  %d seconds\n", max_cpu_burst);
+    printf("\tMin CPU Burst:                  %d seconds\n\n", min_cpu_burst);
 }
 
 void sort_buffer(process_p *process_buffer)
