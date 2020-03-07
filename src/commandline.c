@@ -47,13 +47,13 @@ int cmd_sjf();
 int cmd_list();
 
 static const char *helpmenu[] = {
-    "[run] <job> <time> <priority>       ",
-    "[quit] Exit AUbatch                 ",
-    "[help] Print help menu              ",
-    "[fcfs] Changes scheduler to FCFS",
-    "[sjf] Changes scheduler to SJF",
-    "[priority] Changes scheduler to Priority",
-
+    "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
+    "list: display the job status"
+    "help: Print help menu",
+    "fcfs: change the scheduling policy to FCFS",
+    "sjf: changes the scheduling policy to SJF",
+    "priority: changes the scheduling policy to priority",
+    "quit: Exit AUbatch",
     /* Please add more menu options below */
     NULL};
 
@@ -139,27 +139,20 @@ int cmd_quit(int nargs, char **args)
  */
 void showmenu(const char *name, const char *x[])
 {
-    int ct, half, i;
 
     printf("\n");
     printf("%s\n", name);
 
-    for (i = ct = 0; x[i]; i++)
+    int i = 0;
+    while (1)
     {
-        ct++;
-    }
-    half = (ct + 1) / 2;
-
-    for (i = 0; i < half; i++)
-    {
-        printf("    %-36s", x[i]);
-        if (i + half < ct)
+        if (x[i] == NULL)
         {
-            printf("%s", x[i + half]);
+            break;
         }
-        printf("\n");
+        printf("%s\n", x[i]);
+        i++;
     }
-
     printf("\n");
 }
 
