@@ -15,132 +15,17 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <limits.h>
+#include "aubatch.h"
 
-typedef unsigned int u_int;
-
-#define CMD_BUF_SIZE 10 /* The size of the command queue */
-#define NUM_OF_CMD 5    /* The number of submitted jobs   */
-#define MAX_CMD_LEN 512 /* The longest scheduler length */
-
-enum scheduling_policies
-{
-    FCFS,
-    SJF,
-    PRIORITY,
-} policy;
-
-typedef struct
-{
-    char cmd[MAX_CMD_LEN];
-    time_t arrival_time;
-    int cpu_burst;
-    int cpu_remaining_burst;
-    int priority;
-    int interruptions;
-    int first_time_on_cpu;
-
-} process_t;
-
-typedef struct
-{
-    char cmd[MAX_CMD_LEN];
-    time_t arrival_time;
-    int cpu_burst;
-    int first_time_on_cpu;
-    int priority;
-    int interruptions;
-    int finish_time;
-    int turnaround_time;
-    int waiting_time;
-    int response_time;
-
-} finished_process_t;
-
-typedef process_t *process_p;
-typedef finished_process_t *finished_process_p;
-
-void *scheduler(void *ptr);  /* To simulate job submissions and scheduling */
-void *dispatcher(void *ptr); /* To simulate job execution */
-
-void sort_buffer(process_p *process_buffer);          /* sorts process buffer depending on scheduler */
-int sjf_scheduler(const void *a, const void *b);      /* sorts buffer by remaining cpu burst */
-int fcfs_scheduler(const void *a, const void *b);     /* sorts buffer by arrival time */
-int priority_scheduler(const void *a, const void *b); /* sorts buffer by priority */
-
-process_p get_process();
-process_p get_process_from_file(char *filename, int index);
-int run_process(int burst);               /* sleeps for burst seconds */
-void complete_process(process_p process); /* copys process to completed process buffer */
-
-void report_metrics(); /* loops through completed process buffer and prints metrics */
-
-char *convert_time(time_t time);   /* convers from epoch time to human readable string */
-void remove_newline(char *buffer); /* pulls newline off of string read from user input*/
-
-pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
-pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
-pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
+void submit_job(const char *cmd);
+int calculate_wait();
 
 /* Global shared variables */
-u_int buf_head;
-u_int buf_tail;
+
 u_int count;
-u_int finished_head;
 
 int from_file;
-
-process_p process_buffer[CMD_BUF_SIZE];
-finished_process_p finished_process_buffer[8192];
-
-int main()
-{
-    srand(time(NULL));
-    pthread_t scheduling_thread, dispatching_thread; /* Two concurrent threads */
-    char *message1 = "Scheduling Thread";
-    char *message2 = "Dispatching Thread";
-    int iret1, iret2;
-
-    policy = SJF; // policy for scheduler
-    from_file = 1;
-
-    /* Initialize count, two buffer pointers */
-    count = 0;
-    buf_head = 0;
-    buf_tail = 0;
-    finished_head = 0;
-
-    /* Create two independent threads:command and dispatchers */
-
-    iret1 = pthread_create(&scheduling_thread, NULL, scheduler, (void *)message1);
-    iret2 = pthread_create(&dispatching_thread, NULL, dispatcher, (void *)message2);
-
-    /* Initialize the lock the two condition variables */
-    pthread_mutex_init(&cmd_queue_lock, NULL);
-    pthread_cond_init(&cmd_buf_not_full, NULL);
-    pthread_cond_init(&cmd_buf_not_empty, NULL);
-
-    /* Wait till threads are complete before main continues. Unless we  */
-    /* wait we run the risk of executing an exit which will terminate   */
-    /* the process and all threads before the threads have completed.   */
-    pthread_join(scheduling_thread, NULL);
-    pthread_join(dispatching_thread, NULL);
-
-    if (iret1)
-        printf("scheduling_thread returns: %d\n", iret1);
-    if (iret2)
-        printf("dispatching_thread returns: %d\n", iret1);
-
-    report_metrics();
-    exit(0);
-}
-
+process_p running_process;
 /* 
  * This function simulates a terminal where users may 
  * submit jobs into a batch processing queue.
@@ -148,68 +33,98 @@ int main()
  * If you intend to create a thread from a function 
  * with input parameters, please follow this example.
  */
-void *scheduler(void *ptr)
+
+void scheduler(int argc, char **argv)
 {
-    printf("%s \n", (char *)ptr);
+    /* lock the shared command queue */
+    pthread_mutex_lock(&cmd_queue_lock);
 
-    /* Enter multiple commands in the queue to be scheduled */
-    for (int i = 0; i < NUM_OF_CMD; i++)
+    // printf("In scheduler: count = %d\n", count);
+
+    while (count == CMD_BUF_SIZE)
     {
-
-        /* lock the shared command queue */
-        pthread_mutex_lock(&cmd_queue_lock);
-        printf("In scheduler: count = %d\n", count);
-
-        while (count == CMD_BUF_SIZE)
-        {
-            pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
-        }
-
-        // pthread_mutex_unlock(&cmd_queue_lock);  //uncomment if you want the dispatcher to run while scheduler is loading
-
-        printf("Please submit a batch processing job:\n");
-        printf(">");
-
-        if (from_file)
-            process_buffer[buf_head] = get_process_from_file("static.txt", i);
-        else
-            process_buffer[buf_head] = get_process();
-
-        // pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
-
-        printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
-
-        count++;
-
-        /* Move buf_head forward, this is a circular queue */
-        buf_head++;
-        buf_head %= CMD_BUF_SIZE;
-
-        sort_buffer(process_buffer);
-
-        /* Unlock the shared command queue */
-
-        pthread_cond_signal(&cmd_buf_not_empty);
-        pthread_mutex_unlock(&cmd_queue_lock);
+        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
     }
-    return (void *)NULL;
+
+    pthread_mutex_unlock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+    if (argc == 4)
+        process_buffer[buf_head] = get_process(argv);
+    else
+        process_buffer[buf_head] = get_process_from_file(argv, buf_head);
+
+    pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+
+    // printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
+
+    count++;
+
+    /* Move buf_head forward, this is a circular queue */
+    buf_head++;
+    buf_head %= CMD_BUF_SIZE;
+
+    submit_job(process_buffer[buf_head - 1]->cmd);
+
+    sort_buffer(process_buffer);
+
+    /* Unlock the shared command queue */
+
+    pthread_cond_signal(&cmd_buf_not_empty);
+    pthread_mutex_unlock(&cmd_queue_lock);
 }
 
-process_p get_process()
+char *get_policy_string()
+{
+
+    switch (policy)
+    {
+    case FCFS:
+        return "FCFS";
+
+    case SJF:
+        return "SJF";
+
+    case PRIORITY:
+        return "Priority";
+
+    default:
+        return "Unknown";
+    }
+}
+void submit_job(const char *cmd)
+{
+    const char *str_policy = get_policy_string();
+    printf("Job %s was submitted.\n", cmd);
+    printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
+    printf("Expected waiting time: %d\n",
+           calculate_wait());
+    printf("Scheduling Policy: %s.\n", str_policy);
+}
+
+int calculate_wait()
+{
+    int wait = 0;
+    for (int i = buf_tail; i < buf_head; i++)
+    {
+        wait += process_buffer[i]->cpu_remaining_burst;
+    }
+    if (running_process != NULL)
+        wait += running_process->cpu_remaining_burst;
+    return wait;
+}
+
+process_p get_process(char **argv)
 {
     process_p process = malloc(sizeof(process_t));
-    char cmd_string[MAX_CMD_LEN];
-    //fgets(&cmd_string, MAX_CMD_LEN, stdin); // why is this incorrect? i get a incompatible pointer type warning?
-    fgets(cmd_string, MAX_CMD_LEN, stdin);
-    remove_newline(cmd_string);
+    remove_newline(argv[3]);
 
     // load process structure
-    strcpy(process->cmd, cmd_string);
+    strcpy(process->cmd, argv[1]);
     process->arrival_time = time(NULL);
-    process->cpu_burst = rand() % 9 + 1; // TODO
+    process->cpu_burst = atoi(argv[2]); // TODO
     process->cpu_remaining_burst = process->cpu_burst;
-    process->priority = rand() % 5; // TODO
+    process->priority = atoi(argv[3]); // TODO
     process->interruptions = 0;
+    process->first_time_on_cpu = 0;
     return process;
 }
 
@@ -226,12 +141,12 @@ void skip_ahead(FILE *file, int index)
     } while ((c = fgetc(file)) != EOF);
 }
 
-process_p get_process_from_file(char *filename, int index)
+process_p get_process_from_file(char **filename, int index)
 {
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = fopen(filename[0], "r");
     if (fp == NULL)
     {
-        printf("Error %s could not be found", filename);
+        printf("Error %s could not be found", filename[0]);
         exit(1);
     }
 
@@ -272,16 +187,15 @@ process_p get_process_from_file(char *filename, int index)
 void *dispatcher(void *ptr)
 {
 
-    u_int i;
-
     printf("%s \n", (char *)ptr);
 
-    for (i = 0; i < NUM_OF_CMD; i++)
+    while (1)
     {
 
         /* lock and unlock for the shared process queue */
         pthread_mutex_lock(&cmd_queue_lock);
-        printf("In dispatcher: count = %d\n", count);
+
+        // printf("In dispatcher: count = %d\n", count);
 
         while (count == 0)
         {
@@ -291,39 +205,34 @@ void *dispatcher(void *ptr)
         /* Run the command scheduled in the queue */
         count--;
 
-        printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
-        process_buffer[buf_tail]->first_time_on_cpu = time(NULL);
+        // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
-        process_p process = process_buffer[buf_tail];
-
-        char *cmd = process->cmd;
-        char *argv[] = {NULL};
-        execv(cmd, argv);
-
-        // TODO check if process is done, if not, put back on the buffer
-        /* Free the dynamically allocated memory for the buffer */
-
-        // fcfs example, can run and does not worry about getting booted off
-        int burst = run_process(process->cpu_remaining_burst);
-        // process->finish_time = time(NULL);
-        process->cpu_remaining_burst -= burst;
-
-        complete_process(process);
-
+        running_process = process_buffer[buf_tail];
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
-        free(process);
 
+        /* Free the dynamically allocated memory for the buffer */
         pthread_cond_signal(&cmd_buf_not_full);
         /* Unlock the shared command queue */
         pthread_mutex_unlock(&cmd_queue_lock);
+
+        complete_process(running_process);
     }
     return (void *)NULL;
 }
 
 void complete_process(process_p process)
 {
+    char *cmd = process->cmd;
+    char *argv[] = {NULL};
+    execv(cmd, argv);
+
+    if (process->first_time_on_cpu == 0)
+        process->first_time_on_cpu = time(NULL);
+    int burst = run_process(process->cpu_remaining_burst);
+    process->cpu_remaining_burst -= burst;
+
     finished_process_p finished_process = malloc(sizeof(finished_process_t));
     finished_process->finish_time = time(NULL);
     strcpy(finished_process->cmd, process->cmd);
@@ -338,10 +247,17 @@ void complete_process(process_p process)
 
     finished_process_buffer[finished_head] = finished_process;
     finished_head++;
+
+    // free(process);
 }
 
 void report_metrics()
 {
+    if (!finished_head)
+    {
+        printf("No jobs completed!\n");
+        return;
+    }
     int total_waiting_time = 0;
     int total_turnaround_time = 0;
     int total_response_time = 0;
@@ -436,7 +352,9 @@ void sort_buffer(process_p *process_buffer)
     case PRIORITY:
         sort = priority_scheduler;
     }
-    qsort(process_buffer, buf_head, sizeof(process_p), sort);
+    //todo REMOVE PROCESSES BEING RAN
+
+    qsort(&process_buffer[buf_tail], buf_head - buf_tail, sizeof(process_p), sort);
 }
 
 int sjf_scheduler(const void *a, const void *b)
