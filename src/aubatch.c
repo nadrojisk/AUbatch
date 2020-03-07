@@ -24,11 +24,8 @@ pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
 /* Global shared variables */
 
 u_int count;
-u_int finished_head;
 
 int from_file;
-
-finished_process_p finished_process_buffer[8192];
 
 /* 
  * This function simulates a terminal where users may 
@@ -149,8 +146,6 @@ process_p get_process_from_file(char **filename, int index)
 void *dispatcher(void *ptr)
 {
 
-    u_int i;
-
     printf("%s \n", (char *)ptr);
 
     while (1)
@@ -171,10 +166,11 @@ void *dispatcher(void *ptr)
 #ifdef VERBOSE
         printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 #endif
-        if (process_buffer[buf_tail]->first_time_on_cpu == 0)
-            process_buffer[buf_tail]->first_time_on_cpu = time(NULL);
 
         process_p process = process_buffer[buf_tail];
+
+        if (process->first_time_on_cpu == 0)
+            process->first_time_on_cpu = time(NULL);
 
         char *cmd = process->cmd;
         char *argv[] = {NULL};

@@ -68,5 +68,8 @@ void remove_newline(char *buffer); /* pulls newline off of string read from user
 
 u_int buf_head;
 u_int buf_tail;
+u_int finished_head;
 
 process_p process_buffer[CMD_BUF_SIZE];
+
+finished_process_p finished_process_buffer[8192];
