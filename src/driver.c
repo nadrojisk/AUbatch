@@ -39,8 +39,8 @@ int main(int argc, char **argv)
     char *message2 = "Dispatching Thread";
     int iret1, iret2;
 
-    policy = SJF; // policy for scheduler
-    from_file = 1;
+    policy = FCFS; // policy for scheduler
+    // from_file = 1;
 
     /* Initialize count, two buffer pointers */
     count = 0;
@@ -68,7 +68,5 @@ int main(int argc, char **argv)
         printf("executor_thread returns: %d\n", iret1);
     if (iret2)
         printf("dispatching_thread returns: %d\n", iret1);
-
-    report_metrics();
     exit(0);
 }
