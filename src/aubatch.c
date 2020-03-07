@@ -217,6 +217,11 @@ void complete_process(process_p process)
 
 void report_metrics()
 {
+    if (!finished_head)
+    {
+        printf("No jobs completed!\n");
+        return;
+    }
     int total_waiting_time = 0;
     int total_turnaround_time = 0;
     int total_response_time = 0;
