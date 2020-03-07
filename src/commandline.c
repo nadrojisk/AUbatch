@@ -45,6 +45,7 @@ int cmd_priority();
 int cmd_fcfs();
 int cmd_sjf();
 int cmd_list();
+void change_scheduler();
 
 static const char *helpmenu[] = {
     "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
@@ -215,19 +216,27 @@ int cmd_dispatch(char *cmd)
 int cmd_priority()
 {
     policy = PRIORITY;
+    change_scheduler();
     return 0;
 }
 int cmd_sjf()
 {
     policy = SJF;
+    change_scheduler();
     return 0;
 }
 int cmd_fcfs()
 {
     policy = FCFS;
+    change_scheduler();
     return 0;
 }
 
+void change_scheduler()
+{
+    const char *str_policy = get_policy_string();
+    printf("Scheduling policy is switched to %s. All the %d waiting jobs have been rescheduled.\n", str_policy, buf_head - buf_tail);
+}
 int cmd_list()
 {
     printf("Name CPU_Time Pri Arrival_time             Progress\n");
