@@ -72,21 +72,27 @@ void scheduler(int argc, char **argv)
     pthread_mutex_unlock(&cmd_queue_lock);
 }
 
-void submit_job(const char *cmd)
+char *get_policy_string()
 {
-    char str_policy[10];
+
     switch (policy)
     {
     case FCFS:
-        strcpy(str_policy, "FCFS");
-        break;
+        return "FCFS";
+
     case SJF:
-        strcpy(str_policy, "SJF");
-        break;
+        return "SJF";
+
     case PRIORITY:
-        strcpy(str_policy, "Priority");
-        break;
+        return "Priority";
+
+    default:
+        return "Unknown";
     }
+}
+void submit_job(const char *cmd)
+{
+    const char *str_policy = get_policy_string();
     printf("Job %s was submitted.\n", cmd);
     printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
     printf("Expected waiting time: %d\n",

@@ -65,6 +65,7 @@ void report_metrics(); /* loops through completed process buffer and prints metr
 
 char *convert_time(time_t time);   /* convers from epoch time to human readable string */
 void remove_newline(char *buffer); /* pulls newline off of string read from user input*/
+char *get_policy_string();
 
 u_int buf_head;
 u_int buf_tail;
