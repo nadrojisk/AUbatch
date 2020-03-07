@@ -86,6 +86,7 @@ process_p get_process(char **argv)
     process->cpu_remaining_burst = process->cpu_burst;
     process->priority = atoi(argv[3]); // TODO
     process->interruptions = 0;
+    process->first_time_on_cpu = 0;
     return process;
 }
 
@@ -152,7 +153,7 @@ void *dispatcher(void *ptr)
 
     printf("%s \n", (char *)ptr);
 
-    for (i = 0; i < NUM_OF_CMD; i++)
+    while (1)
     {
 
         /* lock and unlock for the shared process queue */
@@ -170,7 +171,8 @@ void *dispatcher(void *ptr)
 #ifdef VERBOSE
         printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 #endif
-        process_buffer[buf_tail]->first_time_on_cpu = time(NULL);
+        if (process_buffer[buf_tail]->first_time_on_cpu == 0)
+            process_buffer[buf_tail]->first_time_on_cpu = time(NULL);
 
         process_p process = process_buffer[buf_tail];
 
@@ -212,7 +214,7 @@ void complete_process(process_p process)
     finished_process_buffer[finished_head] = finished_process;
     finished_head++;
 
-    free(process);
+    // free(process);
 }
 
 void report_metrics()
@@ -311,7 +313,9 @@ void sort_buffer(process_p *process_buffer)
     case PRIORITY:
         sort = priority_scheduler;
     }
-    qsort(process_buffer, buf_head, sizeof(process_p), sort);
+    //todo REMOVE PROCESSES BEING RAN
+
+    qsort(&process_buffer[buf_tail], buf_head - buf_tail, sizeof(process_p), sort);
 }
 
 int sjf_scheduler(const void *a, const void *b)
