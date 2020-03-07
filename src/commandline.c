@@ -49,7 +49,7 @@ void change_scheduler();
 
 static const char *helpmenu[] = {
     "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
-    "list: display the job status"
+    "list: display the job status",
     "help: Print help menu",
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
@@ -66,18 +66,18 @@ typedef struct
 
 static const cmd cmdtable[] = {
     /* commands: single command must end with \n */
-    {"?\n", cmd_helpmenu},
-    {"h\n", cmd_helpmenu},
-    {"help\n", cmd_helpmenu},
+    {"?", cmd_helpmenu},
+    {"h", cmd_helpmenu},
+    {"help", cmd_helpmenu},
     {"r", cmd_run},
     {"run", cmd_run},
-    {"q\n", cmd_quit},
-    {"quit\n", cmd_quit},
-    {"fcfs\n", cmd_fcfs},
-    {"sjf\n", cmd_sjf},
-    {"priority\n", cmd_priority},
-    {"list\n", cmd_list},
-    {"ls\n", cmd_list},
+    {"q", cmd_quit},
+    {"quit", cmd_quit},
+    {"fcfs", cmd_fcfs},
+    {"sjf", cmd_sjf},
+    {"priority", cmd_priority},
+    {"list", cmd_list},
+    {"ls", cmd_list},
     /* Please add more operations below. */
     {NULL, NULL}};
 
@@ -102,6 +102,7 @@ void *commandline(void *ptr)
     {
         printf("> [? for menu]: ");
         getline(&buffer, &bufsize, stdin);
+        remove_newline(buffer);
         cmd_dispatch(buffer);
     }
     return (void *)NULL;
@@ -159,8 +160,6 @@ void showmenu(const char *name, const char *x[])
 
 int cmd_helpmenu(int n, char **a)
 {
-    (void)n;
-    (void)a;
 
     showmenu("AUbatch help menu", helpmenu);
     return 0;
