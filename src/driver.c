@@ -30,6 +30,7 @@ finished_process_p finished_process_buffer[8192];
 
 int main(int argc, char **argv)
 {
+    printf("Welcome to Jordan Sosnowski's batch job scheduler Version 1.0.\nType ‘help’ to find more about AUbatch commands.\n");
     pthread_t executor_thread, dispatching_thread; /* Two concurrent threads */
     char *message1 = "Executor Thread";
     char *message2 = "Dispatching Thread";
