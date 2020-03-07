@@ -17,12 +17,15 @@
 
 #include "aubatch.h"
 
+void submit_job(const char *cmd);
+int calculate_wait();
+
 /* Global shared variables */
 
 u_int count;
 
 int from_file;
-
+process_p running_process;
 /* 
  * This function simulates a terminal where users may 
  * submit jobs into a batch processing queue.
@@ -59,12 +62,48 @@ void scheduler(int argc, char **argv)
     buf_head++;
     buf_head %= CMD_BUF_SIZE;
 
+    submit_job(process_buffer[buf_head - 1]->cmd);
+
     sort_buffer(process_buffer);
 
     /* Unlock the shared command queue */
 
     pthread_cond_signal(&cmd_buf_not_empty);
     pthread_mutex_unlock(&cmd_queue_lock);
+}
+
+void submit_job(const char *cmd)
+{
+    char str_policy[10];
+    switch (policy)
+    {
+    case FCFS:
+        strcpy(str_policy, "FCFS");
+        break;
+    case SJF:
+        strcpy(str_policy, "SJF");
+        break;
+    case PRIORITY:
+        strcpy(str_policy, "Priority");
+        break;
+    }
+    printf("Job %s was submitted.\n", cmd);
+    printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
+    printf("Expected waiting time: %d\n",
+           calculate_wait());
+    printf("Scheduling Policy: %s.\n", str_policy);
+}
+
+int calculate_wait()
+{
+    int wait = 0;
+    for (int i = buf_tail; i < buf_head; i++)
+    {
+        wait += process_buffer[i]->cpu_remaining_burst;
+    }
+    if (running_process != NULL)
+        wait += running_process->cpu_remaining_burst;
+    return wait;
 }
 
 process_p get_process(char **argv)
@@ -162,8 +201,7 @@ void *dispatcher(void *ptr)
 
         // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
-        process_p process = process_buffer[buf_tail];
-
+        running_process = process_buffer[buf_tail];
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
@@ -173,7 +211,7 @@ void *dispatcher(void *ptr)
         /* Unlock the shared command queue */
         pthread_mutex_unlock(&cmd_queue_lock);
 
-        complete_process(process);
+        complete_process(running_process);
     }
     return (void *)NULL;
 }
