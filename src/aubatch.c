@@ -17,10 +17,6 @@
 
 #include "aubatch.h"
 
-pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
-pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
-pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
-
 /* Global shared variables */
 
 u_int count;
@@ -39,9 +35,9 @@ void scheduler(int argc, char **argv)
 {
     /* lock the shared command queue */
     pthread_mutex_lock(&cmd_queue_lock);
-#ifdef VERBOSE
-    printf("In scheduler: count = %d\n", count);
-#endif
+
+    // printf("In scheduler: count = %d\n", count);
+
     while (count == CMD_BUF_SIZE)
     {
         pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
@@ -54,9 +50,9 @@ void scheduler(int argc, char **argv)
         process_buffer[buf_head] = get_process_from_file(argv, buf_head);
 
     pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
-#ifdef VERBOSE
-    printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
-#endif
+
+    // printf("In scheduler: process_buffer[%d] = %s\n", buf_head, process_buffer[buf_head]->cmd);
+
     count++;
 
     /* Move buf_head forward, this is a circular queue */
@@ -153,9 +149,9 @@ void *dispatcher(void *ptr)
 
         /* lock and unlock for the shared process queue */
         pthread_mutex_lock(&cmd_queue_lock);
-#ifdef VERBOSE
-        printf("In dispatcher: count = %d\n", count);
-#endif
+
+        // printf("In dispatcher: count = %d\n", count);
+
         while (count == 0)
         {
             pthread_cond_wait(&cmd_buf_not_empty, &cmd_queue_lock);
@@ -163,18 +159,10 @@ void *dispatcher(void *ptr)
 
         /* Run the command scheduled in the queue */
         count--;
-#ifdef VERBOSE
-        printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
-#endif
+
+        // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
         process_p process = process_buffer[buf_tail];
-
-        if (process->first_time_on_cpu == 0)
-            process->first_time_on_cpu = time(NULL);
-
-        char *cmd = process->cmd;
-        char *argv[] = {NULL};
-        execv(cmd, argv);
 
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
@@ -192,6 +180,12 @@ void *dispatcher(void *ptr)
 
 void complete_process(process_p process)
 {
+    char *cmd = process->cmd;
+    char *argv[] = {NULL};
+    execv(cmd, argv);
+
+    if (process->first_time_on_cpu == 0)
+        process->first_time_on_cpu = time(NULL);
     int burst = run_process(process->cpu_remaining_burst);
     process->cpu_remaining_burst -= burst;
 

@@ -73,3 +73,7 @@ u_int finished_head;
 process_p process_buffer[CMD_BUF_SIZE];
 
 finished_process_p finished_process_buffer[8192];
+
+pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
+pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
+pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
