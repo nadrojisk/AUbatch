@@ -28,10 +28,11 @@
 #include "aubatch.h"
 
 /* Error Code */
+/* Error Code */
 #define EINVAL 1
 #define E2BIG 2
 
-#define MAXMENUARGS 4
+#define MAXMENUARGS 8
 #define MAXCMDLINE 64
 
 void menu_execute(char *line, int isargs);
