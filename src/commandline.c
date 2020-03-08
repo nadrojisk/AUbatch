@@ -27,13 +27,6 @@
 
 #include "commandline.h"
 
-/* Error Code */
-#define EINVAL 1
-#define E2BIG 2
-
-#define MAXMENUARGS 4
-#define MAXCMDLINE 64
-
 void menu_execute(char *line, int isargs);
 int cmd_run(int nargs, char **args);
 int cmd_quit(int nargs, char **args);
@@ -45,6 +38,7 @@ int cmd_priority();
 int cmd_fcfs();
 int cmd_sjf();
 int cmd_list();
+int cmd_test(int nargs, char **args);
 void change_scheduler();
 
 static const char *helpmenu[] = {
@@ -54,6 +48,7 @@ static const char *helpmenu[] = {
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
+    "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
     "quit: Exit AUbatch",
     /* Please add more menu options below */
     NULL};
@@ -78,6 +73,7 @@ static const cmd cmdtable[] = {
     {"priority", cmd_priority},
     {"list", cmd_list},
     {"ls", cmd_list},
+    {"test", cmd_test},
     /* Please add more operations below. */
     {NULL, NULL}};
 
@@ -238,46 +234,79 @@ void change_scheduler()
 }
 int cmd_list()
 {
-    printf("Name CPU_Time Pri Arrival_time             Progress\n");
+    if (count)
+    {
+        printf("Name CPU_Time Pri Arrival_time             Progress\n");
+        for (int i = 0; i < finished_head; i++)
+        {
+
+            finished_process_p process = finished_process_buffer[i];
+            char *status = "finished";
+
+            char *time = convert_time(process->arrival_time);
+            remove_newline(time);
+            printf("%4s %8d %3d %s %s\n",
+                   process->cmd,
+                   process->cpu_burst,
+                   process->priority,
+                   time,
+                   status);
+        }
+
+        for (int i = 0; i < buf_head; i++)
+        {
+
+            process_p process = process_buffer[i];
+            char *status = "-------";
+            if (process->cpu_remaining_burst == 0)
+            {
+                continue;
+            }
+            else if (process->first_time_on_cpu > 0 && process->cpu_remaining_burst > 0)
+            {
+                status = "running ";
+            }
+
+            char *time = convert_time(process->arrival_time);
+            remove_newline(time);
+            printf("%4s %8d %3d %s %s\n",
+                   process->cmd,
+                   process->cpu_burst,
+                   process->priority,
+                   time,
+                   status);
+        }
+        printf("\n");
+    }
+    else
+        printf("No processes loaded yet!\n");
+    return 0;
+}
+
+int cmd_test(int nargs, char **argv)
+{
+    if (nargs != 7)
+    {
+        printf("Usage: test <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
+        return EINVAL;
+    }
+    char *benchmark = argv[1];
+    char *str_policy = argv[2];
+    int num_of_jobs = atoi(argv[3]);
+    int priority_levels = atoi(argv[4]);
+    int min_cpu_burst = atoi(argv[5]);
+    int max_cpu_burst = atoi(argv[6]);
+    test_scheduler(benchmark, str_policy, num_of_jobs, priority_levels, min_cpu_burst, max_cpu_burst);
+
+    while (count)
+    {
+    }
+    report_metrics();
     for (int i = 0; i < finished_head; i++)
     {
-
-        finished_process_p process = finished_process_buffer[i];
-        char *status = "finished";
-
-        char *time = convert_time(process->arrival_time);
-        remove_newline(time);
-        printf("%4s %8d %3d %s %s\n",
-               process->cmd,
-               process->cpu_burst,
-               process->priority,
-               time,
-               status);
+        free(finished_process_buffer[i]);
     }
-
-    for (int i = 0; i < buf_head; i++)
-    {
-
-        process_p process = process_buffer[i];
-        char *status = "-------";
-        if (process->cpu_remaining_burst == 0)
-        {
-            continue;
-        }
-        else if (process->first_time_on_cpu > 0 && process->cpu_remaining_burst > 0)
-        {
-            status = "running ";
-        }
-
-        char *time = convert_time(process->arrival_time);
-        remove_newline(time);
-        printf("%4s %8d %3d %s %s\n",
-               process->cmd,
-               process->cpu_burst,
-               process->priority,
-               time,
-               status);
-    }
-    printf("\n");
+    finished_head = 0;
+    // TODO wait until everything is done
     return 0;
 }
