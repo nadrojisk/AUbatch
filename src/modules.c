@@ -205,7 +205,7 @@ process_p get_process(char **argv)
 void complete_process(process_p process)
 {
     char cmd[MAX_CMD_LEN * 2];
-    sprintf(cmd, "./src/%s %d", process->cmd, process->cpu_remaining_burst);
+    sprintf(cmd, "%s %d", process->cmd, process->cpu_remaining_burst);
 
     if (process->first_time_on_cpu == 0)
         process->first_time_on_cpu = time(NULL);
