@@ -88,7 +88,14 @@ int cmd_run(int nargs, char **args)
         printf("Usage: run <job> <time> <priority>\n");
         return EINVAL;
     }
-
+    // ensure binary exists first
+    char buff[MAX_CMD_LEN];
+    sprintf(buff, "which %s > /dev/null 2>&1", args[1]);
+    if (system(buff))
+    {
+        printf("Error: file does not exist\n");
+        return EINVAL;
+    }
     scheduler(nargs, args);
     return 0; /* if succeed */
 }
