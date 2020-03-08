@@ -285,6 +285,7 @@ int cmd_list()
 
 int cmd_test(int nargs, char **argv)
 {
+    srand(0);
     if (nargs != 7)
     {
         printf("Usage: test <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
