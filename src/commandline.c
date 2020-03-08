@@ -7,40 +7,18 @@
  * 
  * Date: March 9, 2020. Version 1.0
  *
- * This sample source code demonstrates how to:
- * (1) separate policies from a mechanism
- * (2) parse a commandline using getline() and strtok_r()
+ * Provides implementation for the command line interface
+ * which the user will interact with to submit jobs / processes
+ * to scheduler and dispatcher
  *
  * Compilation Instruction: 
- * gcc commandline_parser.c -o commandline_parser
- * ./commandline_parser
+ * gcc -o aubatch.out aubatch.c commandline.c modules.c -lpthread -Wall
  *
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-
 #include "commandline.h"
 
-void menu_execute(char *line, int isargs);
-int cmd_run(int nargs, char **args);
-int cmd_quit(int nargs, char **args);
-void showmenu(const char *name, const char *x[]);
-int cmd_helpmenu(int n, char **a);
-int cmd_dispatch(char *cmd);
-void *commandline(void *ptr);
-int cmd_priority();
-int cmd_fcfs();
-int cmd_sjf();
-int cmd_list();
-int cmd_test(int nargs, char **args);
-void change_scheduler();
-
+// char array of help definitions
 static const char *helpmenu[] = {
     "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
     "list: display the job status",
@@ -50,7 +28,6 @@ static const char *helpmenu[] = {
     "priority: changes the scheduling policy to priority",
     "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
     "quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
-    /* Please add more menu options below */
     NULL};
 
 typedef struct
@@ -59,8 +36,8 @@ typedef struct
     int (*func)(int nargs, char **args);
 } cmd;
 
+// array of cmds to be used by the command line
 static const cmd cmdtable[] = {
-    /* commands: single command must end with \n */
     {"?", cmd_helpmenu},
     {"h", cmd_helpmenu},
     {"help", cmd_helpmenu},
@@ -74,7 +51,6 @@ static const cmd cmdtable[] = {
     {"list", cmd_list},
     {"ls", cmd_list},
     {"test", cmd_test},
-    /* Please add more operations below. */
     {NULL, NULL}};
 
 /*
@@ -84,9 +60,8 @@ void *commandline(void *ptr)
 {
 
     char *buffer;
-    size_t bufsize = 64;
 
-    buffer = (char *)malloc(bufsize * sizeof(char));
+    buffer = (char *)malloc(MAX_CMD_LEN * sizeof(char));
     if (buffer == NULL)
     {
         perror("Unable to malloc buffer");
@@ -96,7 +71,7 @@ void *commandline(void *ptr)
     while (1)
     {
         printf("> [? for menu]: ");
-        getline(&buffer, &bufsize, stdin);
+        getline(&buffer, MAX_CMD_LEN, stdin);
         remove_newline(buffer);
         cmd_dispatch(buffer);
     }
@@ -115,9 +90,6 @@ int cmd_run(int nargs, char **args)
     }
 
     scheduler(nargs, args);
-
-    /* Use execv to run the submitted job in AUbatch */
-    // printf("use execv to run the job in AUbatch.\n");
     return 0; /* if succeed */
 }
 
@@ -155,29 +127,23 @@ int cmd_quit(int nargs, char **args)
 /*
  * Display menu information
  */
-void showmenu(const char *name, const char *x[])
+int cmd_helpmenu(int n, char **a)
 {
 
     printf("\n");
-    printf("%s\n", name);
+    printf("AUbatch help menu\n");
 
     int i = 0;
     while (1)
     {
-        if (x[i] == NULL)
+        if (helpmenu[i] == NULL)
         {
             break;
         }
-        printf("%s\n", x[i]);
+        printf("%s\n", helpmenu[i]);
         i++;
     }
     printf("\n");
-}
-
-int cmd_helpmenu(int n, char **a)
-{
-
-    showmenu("AUbatch help menu", helpmenu);
     return 0;
 }
 
@@ -218,7 +184,6 @@ int cmd_dispatch(char *cmd)
         {
             assert(cmdtable[i].func != NULL);
 
-            /*Qin: Call function through the cmd_table */
             result = cmdtable[i].func(nargs, args);
             return result;
         }
@@ -228,18 +193,29 @@ int cmd_dispatch(char *cmd)
     return EINVAL;
 }
 
+/*
+ * change scheduler to priority based
+ */
 int cmd_priority()
 {
     policy = PRIORITY;
     change_scheduler();
     return 0;
 }
+
+/*
+ * change scheduler to shorted job first
+ */
 int cmd_sjf()
 {
     policy = SJF;
     change_scheduler();
     return 0;
 }
+
+/*
+ * change scheduler to first come first served
+ */
 int cmd_fcfs()
 {
     policy = FCFS;
@@ -247,11 +223,18 @@ int cmd_fcfs()
     return 0;
 }
 
+/*
+ * print out notification that scheduler is being changed
+ */
 void change_scheduler()
 {
     const char *str_policy = get_policy_string();
     printf("Scheduling policy is switched to %s. All the %d waiting jobs have been rescheduled.\n", str_policy, buf_head - buf_tail);
 }
+
+/*
+ * list running, finished, and waiting processes
+ */
 int cmd_list()
 {
     if (finished_head || count)
@@ -303,10 +286,18 @@ int cmd_list()
     return 0;
 }
 
+/* 
+ * run benchmark test
+ * 
+ * instead of inputting each job one by one with `run` users can use test to 
+ * input a large number of jobs at once
+ * 
+ * this can be used to compare different scheduling algorithms
+ */
 int cmd_test(int nargs, char **argv)
 {
 
-    srand(0);
+    srand(0); // ensure seed is set to the same value each time to make same jobs created
     if (nargs != 8)
     {
         printf("Usage: test <benchmark> <policy> <num_of_jobs> <arrival_rate> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
@@ -314,7 +305,7 @@ int cmd_test(int nargs, char **argv)
     }
     else if (count || finished_head)
     {
-        printf("Error: Jobs current in queue, no jobs should have ran if doing benchmark...\n");
+        printf("Error: Jobs current in queue / on CPU, no jobs should have ran if doing benchmark...\n");
         return EINVAL;
     }
     char *benchmark = argv[1];
@@ -362,6 +353,9 @@ int cmd_test(int nargs, char **argv)
 
     report_metrics();
 
+    // clear process queue and finished queue
+    // ensures that the metrics aren't reported when quitting aubatch
+    // also ensures if running metrics again that the prior jobs will not interfere
     for (int i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);
