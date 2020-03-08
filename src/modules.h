@@ -7,7 +7,6 @@
 #include <limits.h>
 
 #define CMD_BUF_SIZE 10 /* The size of the command queue */
-#define NUM_OF_CMD 5    /* The number of submitted jobs   */
 #define MAX_CMD_LEN 512 /* The longest scheduler length */
 
 enum scheduling_policies
