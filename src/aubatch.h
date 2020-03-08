@@ -48,6 +48,7 @@ typedef process_t *process_p;
 typedef finished_process_t *finished_process_p;
 typedef unsigned int u_int;
 
+void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int priority_levels, int min_CPU_time, int max_CPU_time);
 void scheduler(int argc, char **argv); /* To simulate job submissions and scheduling */
 void *dispatcher(void *ptr);           /* To simulate job execution */
 
@@ -78,3 +79,4 @@ finished_process_p finished_process_buffer[8192];
 pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
 pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
 pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
+u_int count;
