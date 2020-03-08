@@ -71,7 +71,7 @@ void *commandline(void *ptr)
     while (1)
     {
         printf("> [? for menu]: ");
-        getline(&buffer, MAX_CMD_LEN, stdin);
+        fgets(buffer, MAX_CMD_LEN, stdin);
         remove_newline(buffer);
         cmd_dispatch(buffer);
     }
