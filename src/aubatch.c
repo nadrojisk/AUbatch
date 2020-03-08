@@ -260,6 +260,11 @@ void *dispatcher(void *ptr)
             pthread_cond_wait(&cmd_buf_not_empty, &cmd_queue_lock);
         }
         running_process = process_buffer[buf_tail];
+
+        pthread_cond_signal(&cmd_buf_not_full);
+        /* Unlock the shared command queue */
+        pthread_mutex_unlock(&cmd_queue_lock);
+
         complete_process(running_process);
         /* Run the command scheduled in the queue */
         count--;
@@ -269,11 +274,6 @@ void *dispatcher(void *ptr)
         /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
-
-        /* Free the dynamically allocated memory for the buffer */
-        pthread_cond_signal(&cmd_buf_not_full);
-        /* Unlock the shared command queue */
-        pthread_mutex_unlock(&cmd_queue_lock);
     }
     return (void *)NULL;
 }
