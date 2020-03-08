@@ -393,7 +393,7 @@ int priority_scheduler(const void *a, const void *b)
     process_p process_a = *(process_p *)a;
     process_p process_b = *(process_p *)b;
 
-    return (process_a->priority - process_b->priority);
+    return (-process_a->priority + process_b->priority);
 }
 
 /*
