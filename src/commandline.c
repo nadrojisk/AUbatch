@@ -246,7 +246,7 @@ int cmd_list()
 {
     if (finished_head || count)
     {
-        printf("Name CPU_Time Pri Arrival_time             Progress\n");
+        printf("Name               CPU_Time Pri Arrival_time             Progress\n");
         for (int i = 0; i < finished_head; i++)
         {
 
@@ -255,7 +255,7 @@ int cmd_list()
 
             char *time = convert_time(process->arrival_time);
             remove_newline(time);
-            printf("%4s %8d %3d %s %s\n",
+            printf("%-18s %-8d %-3d %s %s\n",
                    process->cmd,
                    process->cpu_burst,
                    process->priority,
@@ -279,7 +279,7 @@ int cmd_list()
 
             char *time = convert_time(process->arrival_time);
             remove_newline(time);
-            printf("%4s %8d %3d %s %s\n",
+            printf("%-18s %-8d %-3d %s %s\n",
                    process->cmd,
                    process->cpu_burst,
                    process->priority,
