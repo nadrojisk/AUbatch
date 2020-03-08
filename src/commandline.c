@@ -368,7 +368,6 @@ int cmd_test(int nargs, char **argv)
     for (int i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);
-        free(process_buffer[i]);
     }
     finished_head = 0;
     buf_head = 0;
