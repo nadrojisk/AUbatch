@@ -17,6 +17,7 @@
  */
 
 #include "commandline.h"
+#include <sys/stat.h>
 
 // char array of help definitions
 static const char *helpmenu[] = {
@@ -88,14 +89,15 @@ int cmd_run(int nargs, char **args)
         printf("Usage: run <job> <time> <priority>\n");
         return EINVAL;
     }
-    // ensure binary exists first
-    char buff[MAX_CMD_LEN];
-    sprintf(buff, "which %s > /dev/null 2>&1", args[1]);
-    if (system(buff))
+    // ensure file exists first
+    FILE *f = fopen(args[1], "r");
+    if (f == NULL)
     {
-        printf("Error: file does not exist\n");
+        printf("Error file does not exist. Please use relative or full path\n");
+        fclose(f);
         return EINVAL;
     }
+    fclose(f);
     scheduler(nargs, args);
     return 0; /* if succeed */
 }
