@@ -22,10 +22,65 @@ int calculate_wait();
 
 /* Global shared variables */
 
-u_int count;
-
 int from_file;
 process_p running_process;
+
+void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int priority_levels, int min_CPU_time, int max_CPU_time)
+{
+    /* lock the shared command queue */
+    pthread_mutex_lock(&cmd_queue_lock);
+
+    // printf("In scheduler: count = %d\n", count);
+
+    while (count == CMD_BUF_SIZE)
+    {
+        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
+    }
+
+    pthread_mutex_unlock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+
+    if (!strcmp(policy_in, "fcfs"))
+    {
+        policy = FCFS;
+    }
+    else if (!strcmp(policy_in, "sjf"))
+    {
+        policy = SJF;
+    }
+    else if (!strcmp(policy_in, "priority"))
+    {
+        policy = PRIORITY;
+    }
+
+    for (int i = 0; i < num_of_jobs; i++)
+    {
+        int priority = (rand() % priority_levels) + 1;
+        int cpu_burst = (rand() % max_CPU_time) + min_CPU_time;
+        process_p process = malloc(sizeof(process_t));
+        sprintf(process->cmd, "test_%s_%d", benchmark, i);
+        process->arrival_time = time(NULL);
+        process->cpu_burst = cpu_burst;
+        process->cpu_remaining_burst = cpu_burst;
+        process->priority = priority;
+        process->interruptions = 0;
+        process->first_time_on_cpu = 0;
+        process_buffer[buf_head] = process;
+        count++;
+
+        /* Move buf_head forward, this is a circular queue */
+        buf_head++;
+        buf_head %= CMD_BUF_SIZE;
+    }
+
+    pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+
+    sort_buffer(process_buffer);
+
+    /* Unlock the shared command queue */
+
+    pthread_cond_signal(&cmd_buf_not_empty);
+    pthread_mutex_unlock(&cmd_queue_lock);
+}
 /* 
  * This function simulates a terminal where users may 
  * submit jobs into a batch processing queue.
@@ -201,14 +256,14 @@ void *dispatcher(void *ptr)
         {
             pthread_cond_wait(&cmd_buf_not_empty, &cmd_queue_lock);
         }
-
+        running_process = process_buffer[buf_tail];
+        complete_process(running_process);
         /* Run the command scheduled in the queue */
         count--;
 
         // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
-        running_process = process_buffer[buf_tail];
-        /* Move buf_tail forward, this is a circular queue */
+                /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
 
@@ -216,8 +271,6 @@ void *dispatcher(void *ptr)
         pthread_cond_signal(&cmd_buf_not_full);
         /* Unlock the shared command queue */
         pthread_mutex_unlock(&cmd_queue_lock);
-
-        complete_process(running_process);
     }
     return (void *)NULL;
 }
