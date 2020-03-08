@@ -82,7 +82,6 @@ static const cmd cmdtable[] = {
  */
 void *commandline(void *ptr)
 {
-    printf("%s \n", (char *)ptr);
 
     char *buffer;
     size_t bufsize = 64;
