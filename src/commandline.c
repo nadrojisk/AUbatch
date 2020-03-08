@@ -17,6 +17,8 @@
  */
 
 #include "commandline.h"
+#include "modules.h"
+
 #include <sys/stat.h>
 
 // char array of help definitions
@@ -77,6 +79,49 @@ void *commandline(void *ptr)
         cmd_dispatch(buffer);
     }
     return (void *)NULL;
+}
+/*
+ * Process a single command.
+ */
+int cmd_dispatch(char *cmd)
+{
+    char *args[MAXMENUARGS];
+    int nargs = 0;
+    char *word;
+    char *context;
+    int i, result;
+
+    for (word = strtok_r(cmd, " ", &context);
+         word != NULL;
+         word = strtok_r(NULL, " ", &context))
+    {
+
+        if (nargs >= MAXMENUARGS)
+        {
+            printf("Command line has too many words\n");
+            return E2BIG;
+        }
+        args[nargs++] = word;
+    }
+
+    if (nargs == 0)
+    {
+        return 0;
+    }
+
+    for (i = 0; cmdtable[i].name; i++)
+    {
+        if (*cmdtable[i].name && !strcmp(args[0], cmdtable[i].name))
+        {
+            assert(cmdtable[i].func != NULL);
+
+            result = cmdtable[i].func(nargs, args);
+            return result;
+        }
+    }
+
+    printf("%s: Command not found\n", args[0]);
+    return EINVAL;
 }
 
 /*
@@ -154,52 +199,6 @@ int cmd_helpmenu(int n, char **a)
     }
     printf("\n");
     return 0;
-}
-
-/*
- * Process a single command.
- */
-int cmd_dispatch(char *cmd)
-{
-    // time_t beforesecs, aftersecs, secs;
-    // u_int32_t beforensecs, afternsecs, nsecs;
-    char *args[MAXMENUARGS];
-    int nargs = 0;
-    char *word;
-    char *context;
-    int i, result;
-
-    for (word = strtok_r(cmd, " ", &context);
-         word != NULL;
-         word = strtok_r(NULL, " ", &context))
-    {
-
-        if (nargs >= MAXMENUARGS)
-        {
-            printf("Command line has too many words\n");
-            return E2BIG;
-        }
-        args[nargs++] = word;
-    }
-
-    if (nargs == 0)
-    {
-        return 0;
-    }
-
-    for (i = 0; cmdtable[i].name; i++)
-    {
-        if (*cmdtable[i].name && !strcmp(args[0], cmdtable[i].name))
-        {
-            assert(cmdtable[i].func != NULL);
-
-            result = cmdtable[i].func(nargs, args);
-            return result;
-        }
-    }
-
-    printf("%s: Command not found\n", args[0]);
-    return EINVAL;
 }
 
 /*

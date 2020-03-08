@@ -17,8 +17,6 @@
 #include <assert.h>
 #include <sys/wait.h>
 
-#include "modules.h"
-
 /* Error Code */
 #define EINVAL 1
 #define E2BIG 2
