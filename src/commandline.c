@@ -127,6 +127,14 @@ int cmd_run(int nargs, char **args)
  */
 int cmd_quit(int nargs, char **args)
 {
+    if (strcmp(args[1], "-i"))
+    {
+        //TODO
+    }
+    else if (!strcmp(args[1], "-d"))
+    {
+        //TODO
+    }
     report_metrics();
     // printf("Please display performance information before exiting AUbatch!\n");
     exit(0);
@@ -286,23 +294,56 @@ int cmd_list()
 int cmd_test(int nargs, char **argv)
 {
     srand(0);
-    if (nargs != 7)
+    if (nargs != 8)
     {
-        printf("Usage: test <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
+        printf("Usage: test <benchmark> <policy> <num_of_jobs> <arrival_rate> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
         return EINVAL;
     }
     char *benchmark = argv[1];
     char *str_policy = argv[2];
     int num_of_jobs = atoi(argv[3]);
-    int priority_levels = atoi(argv[4]);
-    int min_cpu_burst = atoi(argv[5]);
-    int max_cpu_burst = atoi(argv[6]);
-    test_scheduler(benchmark, str_policy, num_of_jobs, priority_levels, min_cpu_burst, max_cpu_burst);
+    int arrival_rate = atoi(argv[4]);
+    int priority_levels = atoi(argv[5]);
+    int min_cpu_burst = atoi(argv[6]);
+    int max_cpu_burst = atoi(argv[7]);
 
+    if (min_cpu_burst >= max_cpu_burst)
+    {
+        printf("Error: <min_CPU_time> cannot be greater than or equal to <max_CPU_time>\n");
+        return EINVAL;
+    }
+    else if (num_of_jobs < 0 || min_cpu_burst < 0 || max_cpu_burst < 0 || priority_levels < 0 || arrival_rate < 0)
+    {
+        printf("Error: <num_of_jobs> <min_CPU_time> <max_CPU_time> <arrival_rate> and <priority_levels> must be greater than 0\n");
+        return EINVAL;
+    }
+
+    if (!strcmp(str_policy, "fcfs"))
+    {
+        policy = FCFS;
+    }
+    else if (!strcmp(str_policy, "sjf"))
+    {
+        policy = SJF;
+    }
+    else if (!strcmp(str_policy, "priority"))
+    {
+        policy = PRIORITY;
+    }
+    else
+    {
+        printf("Error: <policy> must be either fcfs, sjf, or priority\n");
+        return EINVAL;
+    }
+
+    test_scheduler(benchmark, num_of_jobs, arrival_rate, priority_levels, min_cpu_burst, max_cpu_burst);
+    printf("Benchmark is running please wait...\n");
     while (count)
     {
     }
+
     report_metrics();
+
     for (int i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);

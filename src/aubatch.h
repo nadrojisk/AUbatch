@@ -48,7 +48,7 @@ typedef process_t *process_p;
 typedef finished_process_t *finished_process_p;
 typedef unsigned int u_int;
 
-void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int priority_levels, int min_CPU_time, int max_CPU_time);
+void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time);
 void scheduler(int argc, char **argv); /* To simulate job submissions and scheduling */
 void *dispatcher(void *ptr);           /* To simulate job execution */
 

@@ -25,8 +25,9 @@ int calculate_wait();
 int from_file;
 process_p running_process;
 
-void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int priority_levels, int min_CPU_time, int max_CPU_time)
+void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
 {
+    // TODO check if queue is empty first
     /* lock the shared command queue */
     pthread_mutex_lock(&cmd_queue_lock);
 
@@ -39,23 +40,10 @@ void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int prior
 
     pthread_mutex_unlock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
 
-    if (!strcmp(policy_in, "fcfs"))
-    {
-        policy = FCFS;
-    }
-    else if (!strcmp(policy_in, "sjf"))
-    {
-        policy = SJF;
-    }
-    else if (!strcmp(policy_in, "priority"))
-    {
-        policy = PRIORITY;
-    }
-
     for (int i = 0; i < num_of_jobs; i++)
     {
-        int priority = (rand() % priority_levels) + 1;
-        int cpu_burst = (rand() % max_CPU_time) + min_CPU_time;
+        int priority = (rand() % (priority_levels + 1)) + 1;
+        int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
         process_p process = malloc(sizeof(process_t));
         sprintf(process->cmd, "test_%s_%d", benchmark, i);
         process->arrival_time = time(NULL);
@@ -70,16 +58,31 @@ void test_scheduler(char *benchmark, char *policy_in, int num_of_jobs, int prior
         /* Move buf_head forward, this is a circular queue */
         buf_head++;
         buf_head %= CMD_BUF_SIZE;
+
+        if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
+        {
+            pthread_mutex_lock(&cmd_queue_lock);
+
+            sort_buffer(process_buffer);
+
+            /* Unlock the shared command queue */
+
+            pthread_cond_signal(&cmd_buf_not_empty);
+            pthread_mutex_unlock(&cmd_queue_lock);
+            sleep(arrival_rate);
+        }
     }
+    if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify dispatcher
+    {
+        pthread_mutex_lock(&cmd_queue_lock);
 
-    pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
+        sort_buffer(process_buffer);
 
-    sort_buffer(process_buffer);
+        /* Unlock the shared command queue */
 
-    /* Unlock the shared command queue */
-
-    pthread_cond_signal(&cmd_buf_not_empty);
-    pthread_mutex_unlock(&cmd_queue_lock);
+        pthread_cond_signal(&cmd_buf_not_empty);
+        pthread_mutex_unlock(&cmd_queue_lock);
+    }
 }
 /* 
  * This function simulates a terminal where users may 
@@ -263,7 +266,7 @@ void *dispatcher(void *ptr)
 
         // printf("In dispatcher: process_buffer[%d] = %s\n", buf_tail, process_buffer[buf_tail]->cmd);
 
-                /* Move buf_tail forward, this is a circular queue */
+        /* Move buf_tail forward, this is a circular queue */
         buf_tail++;
         buf_tail %= CMD_BUF_SIZE;
 
