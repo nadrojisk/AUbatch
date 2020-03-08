@@ -45,7 +45,7 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         int priority = (rand() % (priority_levels + 1)) + 1;
         int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
         process_p process = malloc(sizeof(process_t));
-        sprintf(process->cmd, "test_%s_%d", benchmark, i);
+        strcpy(process->cmd, "microbatch.out");
         process->arrival_time = time(NULL);
         process->cpu_burst = cpu_burst;
         process->cpu_remaining_burst = cpu_burst;
@@ -245,8 +245,6 @@ process_p get_process_from_file(char **filename, int index)
 void *dispatcher(void *ptr)
 {
 
-    printf("%s \n", (char *)ptr);
-
     while (1)
     {
 
@@ -280,14 +278,16 @@ void *dispatcher(void *ptr)
 
 void complete_process(process_p process)
 {
-    char *cmd = process->cmd;
-    char *argv[] = {NULL};
-    execv(cmd, argv);
+    char cmd[MAX_CMD_LEN * 2];
+    sprintf(cmd, "./src/%s %d", process->cmd, process->cpu_remaining_burst);
 
     if (process->first_time_on_cpu == 0)
         process->first_time_on_cpu = time(NULL);
-    int burst = run_process(process->cpu_remaining_burst);
-    process->cpu_remaining_burst -= burst;
+
+    system(cmd);
+
+    // int burst = run_process(process->cpu_remaining_burst);
+    process->cpu_remaining_burst = 0;
 
     finished_process_p finished_process = malloc(sizeof(finished_process_t));
     finished_process->finish_time = time(NULL);
