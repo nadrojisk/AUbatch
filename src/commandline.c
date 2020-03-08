@@ -49,7 +49,7 @@ static const char *helpmenu[] = {
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
     "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
-    "quit: Exit AUbatch",
+    "quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
     /* Please add more menu options below */
     NULL};
 
@@ -127,16 +127,29 @@ int cmd_run(int nargs, char **args)
  */
 int cmd_quit(int nargs, char **args)
 {
-    if (strcmp(args[1], "-i"))
+    if (!strcmp(args[1], "-i")) // wait for current job to finish running
     {
-        //TODO
+
+        int cur_count = count;
+        printf("Waiting for current job to finish ... \n");
+        if (count)
+        {
+            while (cur_count == count)
+            {
+            }
+        }
     }
-    else if (!strcmp(args[1], "-d"))
+    else if (!strcmp(args[1], "-d")) // wait for all jobs to finish
     {
-        //TODO
+        printf("Waiting for all jobs to finish...\n");
+        while (count)
+        {
+        }
     }
+    printf("Quiting AUBatch... \n");
+
     report_metrics();
-    // printf("Please display performance information before exiting AUbatch!\n");
+
     exit(0);
 }
 
@@ -347,8 +360,11 @@ int cmd_test(int nargs, char **argv)
     for (int i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);
+        free(process_buffer[i]);
     }
     finished_head = 0;
-    // TODO wait until everything is done
+    buf_head = 0;
+    buf_tail = 0;
+
     return 0;
 }
