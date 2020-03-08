@@ -240,7 +240,7 @@ void complete_process(process_p process)
     finished_process_buffer[finished_head] = finished_process;
     finished_head++;
 
-    //free(process);
+    free(process);
 }
 
 /*

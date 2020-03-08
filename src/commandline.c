@@ -17,6 +17,7 @@
  */
 
 #include "commandline.h"
+#include <sys/stat.h>
 
 // char array of help definitions
 static const char *helpmenu[] = {
@@ -88,7 +89,15 @@ int cmd_run(int nargs, char **args)
         printf("Usage: run <job> <time> <priority>\n");
         return EINVAL;
     }
-
+    // ensure file exists first
+    FILE *f = fopen(args[1], "r");
+    if (f == NULL)
+    {
+        printf("Error file does not exist. Please use relative or full path\n");
+        fclose(f);
+        return EINVAL;
+    }
+    fclose(f);
     scheduler(nargs, args);
     return 0; /* if succeed */
 }
@@ -239,7 +248,7 @@ int cmd_list()
 {
     if (finished_head || count)
     {
-        printf("Name CPU_Time Pri Arrival_time             Progress\n");
+        printf("Name               CPU_Time Pri Arrival_time             Progress\n");
         for (int i = 0; i < finished_head; i++)
         {
 
@@ -248,7 +257,7 @@ int cmd_list()
 
             char *time = convert_time(process->arrival_time);
             remove_newline(time);
-            printf("%4s %8d %3d %s %s\n",
+            printf("%-18s %-8d %-3d %s %s\n",
                    process->cmd,
                    process->cpu_burst,
                    process->priority,
@@ -272,7 +281,7 @@ int cmd_list()
 
             char *time = convert_time(process->arrival_time);
             remove_newline(time);
-            printf("%4s %8d %3d %s %s\n",
+            printf("%-18s %-8d %-3d %s %s\n",
                    process->cmd,
                    process->cpu_burst,
                    process->priority,
