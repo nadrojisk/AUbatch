@@ -98,8 +98,12 @@ void scheduler(int argc, char **argv)
     }
 
     pthread_mutex_unlock(&cmd_queue_lock);
-    process_buffer[buf_head] = get_process(argv);
+    process_p process = get_process(argv);
 
+    // print information about job
+    submit_job(process->cmd);
+
+    process_buffer[buf_head] = process;
     pthread_mutex_lock(&cmd_queue_lock);
 
     count++;
@@ -108,11 +112,8 @@ void scheduler(int argc, char **argv)
     buf_head++;
     buf_head %= CMD_BUF_SIZE;
 
-    // ensure buffer is in accordance to current policy
+        // ensure buffer is in accordance to current policy
     sort_buffer(process_buffer);
-
-    // print information about job
-    submit_job(process_buffer[buf_head - 1]->cmd);
 
     /* Unlock the shared command queue */
     pthread_cond_signal(&cmd_buf_not_empty);
@@ -169,15 +170,17 @@ int calculate_wait()
     {
         wait += process_buffer[i]->cpu_remaining_burst;
     }
-    if (running_process != NULL)
-    {
+    // if (running_process != NULL)
+    // {
 
-        // TODO: get a finer grain of estimation
-        // (time(NULL) - running_process->first_time_on_cpu) - cpu_remaining_burst
-        wait += running_process->cpu_remaining_burst;
-    }
+    //     // TODO: get a finer grain of estimation
+    //     // (time(NULL) - running_process->first_time_on_cpu) - cpu_remaining_burst
+    //     wait += running_process->cpu_remaining_burst;
+    // }
     return wait;
 }
+
+//TODO: check if job queue is full
 
 /*
  * Loads process via argv, this is called when `run` is specified in the command line
