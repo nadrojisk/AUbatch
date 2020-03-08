@@ -255,7 +255,7 @@ void change_scheduler()
 }
 int cmd_list()
 {
-    if (count)
+    if (finished_head || count)
     {
         printf("Name CPU_Time Pri Arrival_time             Progress\n");
         for (int i = 0; i < finished_head; i++)
@@ -306,10 +306,16 @@ int cmd_list()
 
 int cmd_test(int nargs, char **argv)
 {
+
     srand(0);
     if (nargs != 8)
     {
         printf("Usage: test <benchmark> <policy> <num_of_jobs> <arrival_rate> <priority_levels> <min_CPU_time> <max_CPU_time>\n");
+        return EINVAL;
+    }
+    else if (count || finished_head)
+    {
+        printf("Error: Jobs current in queue, no jobs should have ran if doing benchmark...\n");
         return EINVAL;
     }
     char *benchmark = argv[1];
