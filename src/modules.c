@@ -17,12 +17,8 @@
 
 #include "modules.h"
 
-void submit_job(const char *cmd);
-int calculate_wait();
-
 /* Global shared variables */
 
-int from_file;
 process_p running_process;
 
 void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
@@ -105,10 +101,7 @@ void scheduler(int argc, char **argv)
     }
 
     pthread_mutex_unlock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
-    if (argc == 4)
-        process_buffer[buf_head] = get_process(argv);
-    else
-        process_buffer[buf_head] = get_process_from_file(argv, buf_head);
+    process_buffer[buf_head] = get_process(argv);
 
     pthread_mutex_lock(&cmd_queue_lock); //uncomment if you want the dispatcher to run while scheduler is loading
 
@@ -197,43 +190,6 @@ void skip_ahead(FILE *file, int index)
         if (linecount == index)
             break;
     } while ((c = fgetc(file)) != EOF);
-}
-
-process_p get_process_from_file(char **filename, int index)
-{
-    FILE *fp = fopen(filename[0], "r");
-    if (fp == NULL)
-    {
-        printf("Error %s could not be found", filename[0]);
-        exit(1);
-    }
-
-    skip_ahead(fp, index);
-
-    char data[MAX_CMD_LEN];
-    fscanf(fp, "%[^\n]s", data);
-
-    char *tok = strtok(data, " ");
-
-    char tokens[64][64] = {{0}};
-
-    process_p process = malloc(sizeof(process_t));
-    int i = 0;
-    while (tok != NULL)
-    {
-        strcpy(tokens[i], tok);
-        tok = strtok(NULL, " ");
-        i++;
-    }
-
-    strcpy(process->cmd, tokens[0]);
-    process->cpu_burst = atoi(tokens[1]);
-    process->priority = atoi(tokens[2]);
-    process->cpu_remaining_burst = process->cpu_burst;
-    process->interruptions = 0;
-    process->arrival_time = time(NULL);
-
-    return process;
 }
 
 /*

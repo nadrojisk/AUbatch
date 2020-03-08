@@ -58,7 +58,6 @@ int fcfs_scheduler(const void *a, const void *b);     /* sorts buffer by arrival
 int priority_scheduler(const void *a, const void *b); /* sorts buffer by priority */
 
 process_p get_process(char **argv);
-process_p get_process_from_file(char **filename, int index);
 int run_process(int burst);               /* sleeps for burst seconds */
 void complete_process(process_p process); /* copys process to completed process buffer */
 
@@ -67,16 +66,18 @@ void report_metrics(); /* loops through completed process buffer and prints metr
 char *convert_time(time_t time);   /* convers from epoch time to human readable string */
 void remove_newline(char *buffer); /* pulls newline off of string read from user input*/
 char *get_policy_string();
+void submit_job(const char *cmd);
+int calculate_wait();
 
+/* Global shared variables */
 u_int buf_head;
 u_int buf_tail;
+u_int count;
 u_int finished_head;
 
 process_p process_buffer[CMD_BUF_SIZE];
-
 finished_process_p finished_process_buffer[8192];
 
 pthread_mutex_t cmd_queue_lock;   /* Lock for critical sections */
 pthread_cond_t cmd_buf_not_full;  /* Condition variable for buf_not_full */
 pthread_cond_t cmd_buf_not_empty; /* Condition variable for buf_not_empty */
-u_int count;
