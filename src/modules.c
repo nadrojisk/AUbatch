@@ -43,7 +43,7 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         int priority = (rand() % (priority_levels + 1)) + 1;
         int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
         process_p process = malloc(sizeof(process_t));
-        strcpy(process->cmd, "microbatch.out");
+        strcpy(process->cmd, "./microbatch.out");
         process->arrival_time = time(NULL);
         process->cpu_burst = cpu_burst;
         process->cpu_remaining_burst = cpu_burst;
@@ -205,7 +205,10 @@ process_p get_process(char **argv)
 void complete_process(process_p process)
 {
     char cmd[MAX_CMD_LEN * 2];
-    sprintf(cmd, "%s %d", process->cmd, process->cpu_remaining_burst);
+    if (!strcmp(process->cmd, "./microbatch.out"))
+        sprintf(cmd, "%s %d", process->cmd, process->cpu_remaining_burst);
+    else
+        sprintf(cmd, "%s > /dev/null", process->cmd);
 
     if (process->first_time_on_cpu == 0)
         process->first_time_on_cpu = time(NULL);
@@ -216,6 +219,10 @@ void complete_process(process_p process)
 
     finished_process_p finished_process = malloc(sizeof(finished_process_t));
     finished_process->finish_time = time(NULL);
+
+    //allows more accurate cpu burst, if we run ls 10 1, ls wont actually run for 10 seconds, therefore we need to update its burst time
+    process->cpu_burst = (int)(finished_process->finish_time - process->first_time_on_cpu);
+
     strcpy(finished_process->cmd, process->cmd);
     finished_process->arrival_time = process->arrival_time;
     finished_process->cpu_burst = process->cpu_burst;
@@ -223,7 +230,11 @@ void complete_process(process_p process)
     finished_process->priority = process->priority;
     finished_process->first_time_on_cpu = process->first_time_on_cpu;
     finished_process->turnaround_time = finished_process->finish_time - finished_process->arrival_time;
-    finished_process->waiting_time = finished_process->turnaround_time - finished_process->cpu_burst;
+    if (finished_process->turnaround_time)
+        finished_process->waiting_time = finished_process->turnaround_time - finished_process->cpu_burst;
+    else
+        finished_process->waiting_time = 0;
+
     finished_process->response_time = finished_process->first_time_on_cpu - finished_process->arrival_time;
 
     finished_process_buffer[finished_head] = finished_process;
