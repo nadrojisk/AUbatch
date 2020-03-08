@@ -11,7 +11,7 @@
  * for the program to work properly. Creates two threads, executor and disaptcher
  *
  * Compilation Instruction: 
- * gcc -o ./aubatch.out ./aubatch.c ./commandline.c ./modules.c -lpthread -Wall
+ * gcc -o aubatch.out aubatch.c commandline.c modules.c -lpthread -Wall
  *
  */
 

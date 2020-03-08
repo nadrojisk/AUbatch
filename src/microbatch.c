@@ -13,7 +13,7 @@
  * If you were to call ./microbatch 10 it would simply sleep for 10 seconds
  * 
  * Compilation Instruction: 
- * gcc -o ./microbatch.out ./microbatch.c
+ * gcc -o microbatch.out microbatch.c
  *
  */
 
