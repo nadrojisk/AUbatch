@@ -29,6 +29,8 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
 {
     if (!arrival_rate)
         batch = 1;
+    else
+        batch = 0;
 
     // create jobs based on num_of_jobs
     int i;
