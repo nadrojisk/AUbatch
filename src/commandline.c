@@ -152,23 +152,26 @@ int cmd_run(int nargs, char **args)
  */
 int cmd_quit(int nargs, char **args)
 {
-    if (!strcmp(args[1], "-i")) // wait for current job to finish running
+    if (nargs == 2)
     {
-
-        int cur_count = count;
-        printf("Waiting for current job to finish ... \n");
-        if (count)
+        if (!strcmp(args[1], "-i")) // wait for current job to finish running
         {
-            while (cur_count == count)
+
+            int cur_count = count;
+            printf("Waiting for current job to finish ... \n");
+            if (count)
             {
+                while (cur_count == count)
+                {
+                }
             }
         }
-    }
-    else if (!strcmp(args[1], "-d")) // wait for all jobs to finish
-    {
-        printf("Waiting for all jobs to finish...\n");
-        while (count)
+        else if (!strcmp(args[1], "-d")) // wait for all jobs to finish
         {
+            printf("Waiting for all jobs to finish...\n");
+            while (count)
+            {
+            }
         }
     }
     printf("Quiting AUBatch... \n");
