@@ -32,6 +32,7 @@ int main(int argc, char **argv)
     buf_head = 0;
     buf_tail = 0;
     finished_head = 0;
+    batch = 0;
 
     /* Create two independent threads: executor and dispatcher */
 

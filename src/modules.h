@@ -78,6 +78,7 @@ u_int buf_head;      /* points to the next free slot in process_buffer */
 u_int buf_tail;      /* points to the next process to be loaded onto the cpu */
 u_int count;         /* the number of waiting processes */
 u_int finished_head; /* points to the next free slot in the finished process buffer */
+u_int batch;
 
 process_p running_process;                        /* running process */
 process_p process_buffer[CMD_BUF_SIZE];           /* buffer of waiting processes */

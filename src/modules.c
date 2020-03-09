@@ -16,7 +16,6 @@
 
 #include "modules.h"
 
-int batch;
 /*
  * This function takes in arguments from command line when users select test
  * 
@@ -28,7 +27,9 @@ int batch;
  */
 void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
 {
-    batch = 1;
+    if (!arrival_rate)
+        batch = 1;
+
     // create jobs based on num_of_jobs
     for (int i = 0; i < num_of_jobs; i++)
     {
@@ -77,7 +78,7 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         }
         else if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
         {
-            batch = 0;
+
             pthread_mutex_lock(&cmd_queue_lock);
             process_buffer[buf_head] = process;
             count++;
