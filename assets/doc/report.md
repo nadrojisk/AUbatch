@@ -1921,13 +1921,18 @@ Overall Metrics for Batch:
         Max CPU Burst:                  3 seconds
         Min CPU Burst:                  0 seconds
 ```
+
 # Lessons Learned
 
+Before this project I had "okay" proficiency with the C language. 
+I had never dealt with programming with mutexes, conditional variables or threads so those new additions were definitely a challenge.
+Dr. Qin's source code aided in the creation process as a base to go off of.
+I feel though after this project my C language understanding has doubled, if not tripled.
+The biggest hurddle I had was dealing with double pointers, my custom type `process_p` and `process_t` and dealing with thread synchronization.
+For example the day of submission I realized I had a large bug with the benchmark code.
+I was not ensuring a small edge cases code was locking the mutex to ensure it was synced with the other thread. 
+
 # Conclusion
-
-# Source Code
-
-You will find below the raw source code of the framework.
 
 \newpage
 
@@ -1941,7 +1946,10 @@ You will find below the raw source code of the framework.
 
 4: <https://en.wikipedia.org/wiki/Scheduling_(computing)#Fixed_priority_pre-emptive_scheduling>
 
+5: <http://www.cplusplus.com/>
+
 [1]: <https://en.wikipedia.org/wiki/Central_processing_unit>
 [2]: <https://en.wikipedia.org/wiki/Scheduling_(computing)#First_come,_first_served>
 [3]: <https://en.wikipedia.org/wiki/Shortest_job_next>
 [4]: <https://en.wikipedia.org/wiki/Scheduling_(computing)#Fixed_priority_pre-emptive_scheduling>
+[5]: <http://www.cplusplus.com/>
