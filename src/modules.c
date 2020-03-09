@@ -27,19 +27,20 @@
  */
 void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
 {
-    /* lock the shared command queue */
-    pthread_mutex_lock(&cmd_queue_lock);
-
-    while (count == CMD_BUF_SIZE)
-    {
-        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
-    }
-
-    pthread_mutex_unlock(&cmd_queue_lock);
 
     // create jobs based on num_of_jobs
     for (int i = 0; i < num_of_jobs; i++)
     {
+        /* lock the shared command queue */
+        pthread_mutex_lock(&cmd_queue_lock);
+
+        while (count == CMD_BUF_SIZE)
+        {
+            pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
+        }
+
+        pthread_mutex_unlock(&cmd_queue_lock);
+
         int priority = (rand() % (priority_levels + 1)) + 1;
         int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
         process_p process = malloc(sizeof(process_t));
@@ -68,6 +69,18 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
             pthread_cond_signal(&cmd_buf_not_empty);
             pthread_mutex_unlock(&cmd_queue_lock);
             sleep(arrival_rate); // wait for the arrival rate
+        }
+        if (i + 1 >= CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
+        // without this we would be stuck forever
+        {
+            pthread_mutex_lock(&cmd_queue_lock);
+
+            sort_buffer(process_buffer);
+
+            /* Unlock the shared command queue */
+
+            pthread_cond_signal(&cmd_buf_not_empty);
+            pthread_mutex_unlock(&cmd_queue_lock);
         }
     }
     if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify dispatcher
@@ -112,7 +125,7 @@ void scheduler(int argc, char **argv)
     buf_head++;
     buf_head %= CMD_BUF_SIZE;
 
-        // ensure buffer is in accordance to current policy
+    // ensure buffer is in accordance to current policy
     sort_buffer(process_buffer);
 
     /* Unlock the shared command queue */
@@ -179,8 +192,6 @@ int calculate_wait()
     // }
     return wait;
 }
-
-//TODO: check if job queue is full
 
 /*
  * Loads process via argv, this is called when `run` is specified in the command line
