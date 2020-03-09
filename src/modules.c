@@ -33,12 +33,11 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
     // create jobs based on num_of_jobs
     for (int i = 0; i < num_of_jobs; i++)
     {
-        if (i >= CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
+        if (i >= CMD_BUF_SIZE)
+        // if i is larger than cmd_buff we need to notify dispatcher earlier
         // without this we would be stuck forever
         {
-            pthread_mutex_lock(&cmd_queue_lock);
             pthread_cond_signal(&cmd_buf_not_empty);
-            pthread_mutex_unlock(&cmd_queue_lock);
         }
 
         /* lock the shared command queue */
@@ -51,9 +50,10 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
 
         pthread_mutex_unlock(&cmd_queue_lock);
 
+        process_p process = malloc(sizeof(process_t));
+
         int priority = (rand() % (priority_levels + 1)) + 1;
         int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
-        process_p process = malloc(sizeof(process_t));
         strcpy(process->cmd, "./microbatch.out");
         process->arrival_time = time(NULL);
         process->cpu_burst = cpu_burst;
@@ -66,29 +66,23 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         count++;
         /* Move buf_head forward, this is a circular queue */
         buf_head++;
-
+        // sort before moding buf_head, without this if you were to sort CMD_BUF_SIZE items it would break
         sort_buffer(process_buffer);
         buf_head %= CMD_BUF_SIZE;
+
         pthread_mutex_unlock(&cmd_queue_lock);
 
         if (arrival_rate)
         {
             // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
-            pthread_mutex_lock(&cmd_queue_lock);
-
-            /* Unlock the shared command queue */
             pthread_cond_signal(&cmd_buf_not_empty);
-            pthread_mutex_unlock(&cmd_queue_lock);
             sleep(arrival_rate); // wait for the arrival rate
         }
     }
     if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify dispatcher
     {
-        pthread_mutex_lock(&cmd_queue_lock);
-
         /* Unlock the shared command queue */
         pthread_cond_signal(&cmd_buf_not_empty);
-        pthread_mutex_unlock(&cmd_queue_lock);
     }
 }
 /* 
@@ -119,10 +113,9 @@ void scheduler(int argc, char **argv)
 
     /* Move buf_head forward, this is a circular queue */
     buf_head++;
-    buf_head %= CMD_BUF_SIZE;
-
     // ensure buffer is in accordance to current policy
     sort_buffer(process_buffer);
+    buf_head %= CMD_BUF_SIZE;
 
     /* Unlock the shared command queue */
     pthread_cond_signal(&cmd_buf_not_empty);
@@ -179,13 +172,6 @@ int calculate_wait()
     {
         wait += process_buffer[i]->cpu_remaining_burst;
     }
-    // if (running_process != NULL)
-    // {
-
-    //     // TODO: get a finer grain of estimation
-    //     // (time(NULL) - running_process->first_time_on_cpu) - cpu_remaining_burst
-    //     wait += running_process->cpu_remaining_burst;
-    // }
     return wait;
 }
 
