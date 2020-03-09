@@ -546,9 +546,9 @@ int cmd_test(int nargs, char **argv)
         printf("Error: <min_CPU_time> cannot be greater than or equal to <max_CPU_time>\n");
         return EINVAL;
     }
-    else if (num_of_jobs < 0 || min_cpu_burst < 0 || max_cpu_burst < 0 || priority_levels < 0 || arrival_rate < 0)
+    else if (num_of_jobs <= 0 || min_cpu_burst < 0 || max_cpu_burst < 0 || priority_levels < 0 || arrival_rate < 0)
     {
-        printf("Error: <num_of_jobs> <min_CPU_time> <max_CPU_time> <arrival_rate> and <priority_levels> must be greater than 0\n");
+        printf("Error: <num_of_jobs> cannot be equal or less than zero\nError: <min_CPU_time> <max_CPU_time> <arrival_rate> and <priority_levels> must be greater than 0\n");
         return EINVAL;
     }
 
