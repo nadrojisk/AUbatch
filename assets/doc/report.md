@@ -5,8 +5,13 @@ date: "2020-3-9"
 subject: "AUBatch"
 keywords: [c, commandline, cpu scheduling, algorithms, fcfs, sjf, priority]
 lang: "en"
+titlepage: "true"
+titlepage-rule-height: "0"
+titlepage-background: "./background2.pdf"
 ---
+<!-- `pandoc report.md -o project.pdf --from markdown --template eisvogel --listing --toc` -->
 
+/newpage
 # Introduction
 
 ## I. Problem Description
@@ -107,7 +112,7 @@ Following this we create two threads, one that calls `commandline` located in `c
 
 Following this we wait for the threads to join, and if they have return values we print them out.
 
-## 2. Commandline
+## II. Commandline
 
 Within `commandline.c` we include `modules.h` and `commandline.h`.
 
