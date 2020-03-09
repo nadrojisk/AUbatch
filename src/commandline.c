@@ -238,6 +238,7 @@ void change_scheduler()
 {
     const char *str_policy = get_policy_string();
     printf("Scheduling policy is switched to %s. All the %d waiting jobs have been rescheduled.\n", str_policy, buf_head - buf_tail);
+    sort_buffer(process_buffer);
 }
 
 /*
