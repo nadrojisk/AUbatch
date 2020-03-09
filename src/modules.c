@@ -385,6 +385,8 @@ void sort_buffer(process_p *process_buffer)
     qsort(&process_buffer[index], buf_head - index, sizeof(process_p), sort);
 }
 
+// TODO: segfault test t sjf 10 2 0 0 4
+
 /*
  * SJF sorting algorithm used by qsort
  */
@@ -471,7 +473,7 @@ void submit_job(const char *cmd)
 {
     const char *str_policy = get_policy_string();
     printf("Job %s was submitted.\n", cmd);
-    printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
+    printf("Total number of jobs in the queue: %d\n", count + 1);
     printf("Expected waiting time: %d\n",
            calculate_wait());
     printf("Scheduling Policy: %s.\n", str_policy);
