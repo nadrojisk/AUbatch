@@ -25,12 +25,12 @@
 static const char *helpmenu[] = {
     "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
     "list: display the job status",
-    "help: Print help menu",
+    "help: print help menu",
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
     "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
-    "quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
+    "quit: exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
     NULL};
 
 typedef struct
@@ -252,7 +252,8 @@ int cmd_list()
     if (finished_head || count)
     {
         printf("Name               CPU_Time Pri Arrival_time             Progress\n");
-        for (int i = 0; i < finished_head; i++)
+        int i;
+        for (i = 0; i < finished_head; i++)
         {
 
             finished_process_p process = finished_process_buffer[i];
@@ -268,7 +269,7 @@ int cmd_list()
                    status);
         }
 
-        for (int i = 0; i < buf_head; i++)
+        for (i = 0; i < buf_head; i++)
         {
 
             process_p process = process_buffer[i];
@@ -368,7 +369,8 @@ int cmd_test(int nargs, char **argv)
     // clear process queue and finished queue
     // ensures that the metrics aren't reported when quitting aubatch
     // also ensures if running metrics again that the prior jobs will not interfere
-    for (int i = 0; i < finished_head; i++)
+    int i;
+    for (i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);
     }
