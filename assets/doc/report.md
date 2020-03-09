@@ -416,7 +416,6 @@ int cmd_list()
                    status);
         }
 
-        int i;
         for (i = 0; i < buf_head; i++)
         {
 
