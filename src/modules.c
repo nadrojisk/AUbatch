@@ -31,7 +31,8 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         batch = 1;
 
     // create jobs based on num_of_jobs
-    for (int i = 0; i < num_of_jobs; i++)
+    int i;
+    for (i = 0; i < num_of_jobs; i++)
     {
         if (i >= CMD_BUF_SIZE)
         // if i is larger than cmd_buff we need to notify dispatcher earlier
@@ -168,7 +169,8 @@ void *dispatcher(void *ptr)
 int calculate_wait()
 {
     int wait = 0;
-    for (int i = buf_tail; i < buf_head; i++)
+    int i;
+    for (i = buf_tail; i < buf_head; i++)
     {
         wait += process_buffer[i]->cpu_remaining_burst;
     }
