@@ -171,7 +171,7 @@ static const char *helpmenu[] = {
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
-    "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
+    "test <benchmark> <policy> <num_of_jobs> <arrival_time> <priority_levels> <min_CPU_time> <max_CPU_time>",
     "quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
     NULL};
 ```
@@ -230,6 +230,7 @@ void *commandline(void *ptr)
     return (void *)NULL;
 }
 ```
+
 Next we will look into `cmd_dispatch` this is the controller of `commandline` as it helps determine code flow.
 Within this function we first determine the number of arguments, we assume arguments are space delimitated.
 To determine the number of arguments we use `strtok` to tokenize the string.
@@ -284,7 +285,37 @@ int cmd_dispatch(char *cmd)
     return EINVAL;
 }
 ```
+
 What follows next are the implementations for each cmd function.
+
+![](../img/run_example.png)
+
+`cmd_run`, which is called via `run` or `r`, will check to ensure you passed the right number of parameters.
+After that it will call scheduler and pass it the command line arguments provided.
+
+```c++
+int cmd_run(int nargs, char **args)
+{
+    if (nargs != 4)
+    {
+        printf("Usage: run <job> <time> <priority>\n");
+        return EINVAL;
+    }
+    // ensure file exists first
+    FILE *f = fopen(args[1], "r");
+    if (f == NULL)
+    {
+        printf("Error file does not exist. Please use relative or full path\n");
+        fclose(f);
+        return EINVAL;
+    }
+    fclose(f);
+    scheduler(nargs, args);
+    return 0; /* if succeed */
+}
+```
+
+![](../img/quit_example.png)
 
 `cmd_quit`, which is called via `quit` or `q`, will first check and see if you passed any flags with it.
 If you pass `-i` aubatch will wait for the current process on the CPU to finish. 
@@ -325,6 +356,8 @@ int cmd_quit(int nargs, char **args)
 }
 ```
 
+![](../img/help_menu.png)
+
 `cmd_helpmenu`, which can be called with `help`, `h`, or `?`, will loop through each helpmenu array element and print to the screen for the user.
 
 ```c++
@@ -348,6 +381,7 @@ int cmd_helpmenu(int n, char **a)
     return 0;
 }
 ```
+![](../img/change_scheduler.png)
 
 `cmd_priority`, which is called with `priority`, will change the current scheduling policy to priority based.
 
@@ -361,6 +395,7 @@ int cmd_priority()
 ```
 
 `cmd_sjf`, which is called with `sjf`, will change the current scheduling policy to the shortest job first.
+
 ```c++
 int cmd_sjf()
 {
@@ -371,6 +406,7 @@ int cmd_sjf()
 ```
 
 `cmd_fcfs`, which is called with `fcfs`, will change the current scheduling policy to first come, first served.
+
 ```c++
 int cmd_sjf()
 {
@@ -382,6 +418,7 @@ int cmd_sjf()
 
 Each change in scheduling algorithm will also call `change_scheduler` which will print out some information to the screen for the user.
 It will also resort to the buffer to ensure the processes are in the correct order for the new scheduler.
+
 ```c++
 void change_scheduler()
 {
@@ -390,6 +427,9 @@ void change_scheduler()
     sort_buffer(process_buffer);
 }
 ```
+
+![](../img/list_example.png)
+
 `cmd_list`, which is called with `ls` or `list`, will list the running process, and all the finished and waiting processes and relevant information about them.
 If you have no processes waiting, running, or finished it will notify you.
 
@@ -446,6 +486,8 @@ int cmd_list()
     return 0;
 }
 ```
+
+![](../img/test_example.png)
 
 `cmd_test`, which is called with `test`, is the benchmark function. 
 It takes 7 parameters: `benchmark_name`, `policy`, `num_of_jobs`, `arrival_rate`, `priority`, `min_cpu_burst`, and `max_cpu_burst`.
@@ -1076,110 +1118,10 @@ void submit_job(const char *cmd)
 }
 ```
 
-Recommendations
-
+\newpage
 # Performance Metrics
 
-```
-./aubatch.out
-Welcome to Jordan Sosnowski's batch job scheduler Version 1.0.
-Type ‘help’ to find more about AUbatch commands.
-> [? for menu]: help
-
-AUbatch help menu
-run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>
-list: display the job status
-help: Print help menu
-fcfs: change the scheduling policy to FCFS
-sjf: changes the scheduling policy to SJF
-priority: changes the scheduling policy to priority
-test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>
-quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish
-
-> [? for menu]: test bench1 fcfs 5 0 5 0 10
-Benchmark is running please wait...
-
-=== Reporting Metrics for FCFS ===
-
-Metrics for job ./microbatch.out:
-    CPU Burst:           4 seconds
-    Interruptions:       0 times
-    Priority:            1
-    Arrival Time:        Sun Mar  8 20:06:21 2020
-    First Time on CPU:   Sun Mar  8 20:06:21 2020
-    Finish Time:         Sun Mar  8 20:06:25 2020
-    Turnaround Time:     4 seconds
-    Waiting Time:        0 seconds
-    Response Time:       0 seconds
-
-Metrics for job ./microbatch.out:
-    CPU Burst:           5 seconds
-    Interruptions:       0 times
-    Priority:            6
-    Arrival Time:        Sun Mar  8 20:06:21 2020
-    First Time on CPU:   Sun Mar  8 20:06:25 2020
-    Finish Time:         Sun Mar  8 20:06:30 2020
-    Turnaround Time:     9 seconds
-    Waiting Time:        4 seconds
-    Response Time:       4 seconds
-
-Metrics for job ./microbatch.out:
-    CPU Burst:           6 seconds
-    Interruptions:       0 times
-    Priority:            2
-    Arrival Time:        Sun Mar  8 20:06:21 2020
-    First Time on CPU:   Sun Mar  8 20:06:30 2020
-    Finish Time:         Sun Mar  8 20:06:36 2020
-    Turnaround Time:     15 seconds
-    Waiting Time:        9 seconds
-    Response Time:       9 seconds
-
-Metrics for job ./microbatch.out:
-    CPU Burst:           0 seconds
-    Interruptions:       0 times
-    Priority:            5
-    Arrival Time:        Sun Mar  8 20:06:21 2020
-    First Time on CPU:   Sun Mar  8 20:06:36 2020
-    Finish Time:         Sun Mar  8 20:06:36 2020
-    Turnaround Time:     15 seconds
-    Waiting Time:        15 seconds
-    Response Time:       15 seconds
-
-Metrics for job ./microbatch.out:
-    CPU Burst:           8 seconds
-    Interruptions:       0 times
-    Priority:            3
-    Arrival Time:        Sun Mar  8 20:06:21 2020
-    First Time on CPU:   Sun Mar  8 20:06:36 2020
-    Finish Time:         Sun Mar  8 20:06:44 2020
-    Turnaround Time:     23 seconds
-    Waiting Time:        15 seconds
-    Response Time:       15 seconds
-
-Overall Metrics for Batch:
-    Total Number of Jobs Completed: 5
-    Total Number of Jobs Submitted: 5
-    Average Turnaround Time:        13.200 seconds
-    Average Waiting Time:           8.600 seconds
-    Average Response Time:          8.600 seconds
-    Average CPU Burst:              4.600 seconds
-    Total CPU Burst:                23 seconds
-    Throughput:                     0.076 No./second
-    Max Turnaround Time:            23 seconds
-    Min Turnaround Time:            4 seconds
-
-    Max Waiting Time:               15 seconds
-    Min Waiting Time:               0 seconds
-
-    Max Response Time:              15 seconds
-    Min Response Time:              0 seconds
-
-    Max CPU Burst:                  8 seconds
-    Min CPU Burst:                  0 seconds
-```
-
-\newpage
-# Performance Evaluation
+Note: for all performance evaluation I used `microbatch.out` which is a sample program that simply sleeps for `n` seconds, while `n` is provided by the user.
 
 ## Instant Arrival
 
@@ -1951,6 +1893,8 @@ Overall Metrics for Batch:
         Max CPU Burst:                  3 seconds
         Min CPU Burst:                  0 seconds
 ```
+
+# Performance Evaluations
 
 # Lessons Learned
 
