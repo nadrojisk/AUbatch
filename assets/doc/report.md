@@ -31,7 +31,7 @@ Preemptive algorithms are extremely popular and efficient, as state earlier, but
 
 ## II. Background
 
-To fully understand some of the processes and applications discussed in this paper, a background in these methodologies needs to be established.
+To fully understand some of the algorithms and technologies discussed in this paper, a background in these methodologies needs to be established.
 
 ### 1. Central Processing Unit
 
@@ -65,30 +65,40 @@ We have two external entities, user, and microbenchmark files.
 There are 10 processes and 3 data stores.
 Our `user` interacts with the `commandline parser` which will call a function depending on the input.
 
-We can provide a different scheduling type, help / h / ?, list / ls, run ..., test ..., and quit.
+We can provide a different scheduling types, help / h / ?, list / ls, run ..., test ..., and quit.
 
-`run` will call the `scheduling module` which will in turn load the job into the `job information queue` which is used by the `dispatching module` which when finished will load the finished job onto the `finished job information queue`.
+* `run` will call the `scheduling module` which will in turn load the job into the `job information queue` which is used by the `dispatching module` which when finished will load the finished job onto the `finished job information queue`.
 
-`list` will call the `display job queue` which pulls information from the `scheduler enum`, the `finished job information queue`, and the `job information queue`.
+* `list` will call the `display job queue` which pulls information from the `scheduler enum`, the `finished job information queue`, and the `job information queue`.
 
-`test` will call the `automated performance evaluation` process which sends jobs to the `scheduling module`.
+* `test` will call the `automated performance evaluation` process which sends jobs to the `scheduling module`.
 
-`fcfs` / `sjf` / `priority` will change the current scheduling algorithm by loading it into the `scheduler enum`.
+* `fcfs` / `sjf` / `priority` will change the current scheduling algorithm by loading it into the `scheduler enum`.
 
+* `quit` can take two optional flags `-i` or `-d`. `-i` will wait until the current job finished, `-d` will wait until all the jobs finish.
+If no flag is provided it will simply quit immediately.
 
 ![](../img/AUBatch_DFD.png)
 
+\newpage 
 
 ## II. AUBatch
 
-The first module we will discuss is aubatch.c.
+The first module we will discuss is `aubatch.c`.
 It is the driver for the whole framework, and the only module with a main function.
+
+We first include `commandline.h` and `modules.h` so we can gain the functionality of `commandline.c` and `modules.c`.
 
 ```c++
 #include "commandline.h"
 #include "modules.h"
 ```
-We first include `commandline.h` and `modules.h` so we can gain the functionality of `commandline.c` and `modules.c`.
+
+After the include statement we flesh out main.
+Within main we print the welcome message. Follow this we declare and instantiate a multitude of variables used throughout `commandline.c` and `modules.c`.
+Following this we create two threads, one that calls `commandline` located in `commandline.c` and another that calls `dispatcher` which is located in `modules.c`.
+
+Following this we wait for the threads to join, and if they have return values we print them out.
 
 ```c++
 int main(int argc, char **argv)
@@ -130,11 +140,6 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
-After the include statement we flesh out main.
-Within main we print the welcome message. Follow this we declare and instantiate a multitude of variables used throughout `commandline.c` and `modules.c`.
-Following this we create two threads, one that calls `commandline` located in `commandline.c` and another that calls `dispatcher` which is located in `modules.c`.
-
-Following this we wait for the threads to join, and if they have return values we print them out.
 
 ## III. Commandline
 
