@@ -29,7 +29,7 @@ static const char *helpmenu[] = {
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
-    "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
+    "test <benchmark> <policy> <num_of_jobs> <arrival_time> <priority_levels> <min_CPU_time> <max_CPU_time>",
     "quit: exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
     NULL};
 
