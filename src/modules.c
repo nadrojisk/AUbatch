@@ -16,6 +16,7 @@
 
 #include "modules.h"
 
+int batch;
 /*
  * This function takes in arguments from command line when users select test
  * 
@@ -27,7 +28,7 @@
  */
 void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
 {
-
+    batch = 1;
     // create jobs based on num_of_jobs
     for (int i = 0; i < num_of_jobs; i++)
     {
@@ -60,6 +61,7 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
 
         if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
         {
+            batch = 0;
             pthread_mutex_lock(&cmd_queue_lock);
 
             sort_buffer(process_buffer);
@@ -70,7 +72,7 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
             pthread_mutex_unlock(&cmd_queue_lock);
             sleep(arrival_rate); // wait for the arrival rate
         }
-        if (i + 1 >= CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
+        else if (i + 1 >= CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
         // without this we would be stuck forever
         {
             pthread_mutex_lock(&cmd_queue_lock);
@@ -371,7 +373,16 @@ void sort_buffer(process_p *process_buffer)
 
     // only sort buf_tail and more, if we sort at the base of process_buffer we will
     // sort processes that are currently running on the cpu
-    qsort(&process_buffer[buf_tail], buf_head - buf_tail, sizeof(process_p), sort);
+    int index;
+
+    // if we are doing a batch job, aka arrival rate is not 0 then add 1 to buf_tail
+    // if we sort ahead of buf_tail for a batch job we will all the processes even tho
+    // none are currently on the cpu
+    if (!batch)
+        index = buf_tail + 1;
+    else
+        index = buf_tail;
+    qsort(&process_buffer[index], buf_head - index, sizeof(process_p), sort);
 }
 
 /*
