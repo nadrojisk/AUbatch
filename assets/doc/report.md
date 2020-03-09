@@ -105,6 +105,7 @@ int main(int argc, char **argv)
     buf_head = 0;
     buf_tail = 0;
     finished_head = 0;
+    batch = 0;
 
     /* Create two independent threads: executor and dispatcher */
 
@@ -361,11 +362,13 @@ int cmd_sjf()
 ```
 
 Each change in scheduling algorithm will also call `change_scheduler` which will print out some information to the screen for the user.
+It will also resort the buffer to ensure the processes are in the correct order for the new scheduler.
 ```c++
 void change_scheduler()
 {
     const char *str_policy = get_policy_string();
     printf("Scheduling policy is switched to %s. All the %d waiting jobs have been rescheduled.\n", str_policy, buf_head - buf_tail);
+    sort_buffer(process_buffer);
 }
 ```
 `cmd_list` which is called with `ls` or `list` will list all the running, finished, and waiting processes and relevant information about them.
@@ -550,8 +553,22 @@ If `arrival_rate` is 0 we assume all the processes arrive at the same time, ther
 If our loop increment becomes larger than `CMD_BUF_SIZE` we need to notify the dispatcher ahead of time to ensure our queue does not overflow.
 
 ```c++
+if (!arrival_rate)
+    batch = 1;
+
+// create jobs based on num_of_jobs
 for (int i = 0; i < num_of_jobs; i++)
 {
+    /* lock the shared command queue */
+    pthread_mutex_lock(&cmd_queue_lock);
+
+    while (count == CMD_BUF_SIZE)
+    {
+        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
+    }
+
+    pthread_mutex_unlock(&cmd_queue_lock);
+
     int priority = (rand() % (priority_levels + 1)) + 1;
     int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
     process_p process = malloc(sizeof(process_t));
@@ -562,37 +579,60 @@ for (int i = 0; i < num_of_jobs; i++)
     process->priority = priority;
     process->interruptions = 0;
     process->first_time_on_cpu = 0;
-    process_buffer[buf_head] = process;
-    count++;
 
-    /* Move buf_head forward, this is a circular queue */
-    buf_head++;
-    buf_head %= CMD_BUF_SIZE;
-
-    if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
+    if (i >= CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
+    // without this we would be stuck forever
     {
         pthread_mutex_lock(&cmd_queue_lock);
+        while (count == CMD_BUF_SIZE)
+        {
+            pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
+        }
+        pthread_mutex_unlock(&cmd_queue_lock);
+        pthread_mutex_lock(&cmd_queue_lock);
+        process_buffer[buf_head] = process;
+        count++;
+
+        /* Move buf_head forward, this is a circular queue */
+        buf_head++;
+        sort_buffer(process_buffer);
+        buf_head %= CMD_BUF_SIZE;
+        /* Unlock the shared command queue */
+
+        pthread_cond_signal(&cmd_buf_not_empty);
+        pthread_mutex_unlock(&cmd_queue_lock);
+    }
+    else if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
+    {
+
+        pthread_mutex_lock(&cmd_queue_lock);
+        process_buffer[buf_head] = process;
+        count++;
+        /* Move buf_head forward, this is a circular queue */
+        buf_head++;
 
         sort_buffer(process_buffer);
-
+        buf_head %= CMD_BUF_SIZE;
         /* Unlock the shared command queue */
 
         pthread_cond_signal(&cmd_buf_not_empty);
         pthread_mutex_unlock(&cmd_queue_lock);
         sleep(arrival_rate); // wait for the arrival rate
     }
-    if (i > CMD_BUF_SIZE) // if i is larger than cmd_buff we need to notify dispatcher earlier
-    // without this we would be stuck forever
+    else
     {
         pthread_mutex_lock(&cmd_queue_lock);
+        process_buffer[buf_head] = process;
+        count++;
 
+        /* Move buf_head forward, this is a circular queue */
+        buf_head++;
         sort_buffer(process_buffer);
+        buf_head %= CMD_BUF_SIZE;
 
-        /* Unlock the shared command queue */
-
-        pthread_cond_signal(&cmd_buf_not_empty);
         pthread_mutex_unlock(&cmd_queue_lock);
     }
+}
 if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify dispatcher
 {
     pthread_mutex_lock(&cmd_queue_lock);
@@ -603,7 +643,6 @@ if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify di
 
     pthread_cond_signal(&cmd_buf_not_empty);
     pthread_mutex_unlock(&cmd_queue_lock);
-}
 }
 ```
 
@@ -902,9 +941,16 @@ void sort_buffer(process_p *process_buffer)
         sort = priority_scheduler;
     }
 
-    // only sort buf_tail and more, if we sort at the base of process_buffer we will
-    // sort processes that are currently running on the cpu
-    qsort(&process_buffer[buf_tail], buf_head - buf_tail, sizeof(process_p), sort);
+    int index;
+
+    // if we are doing a batch job, aka arrival rate is not 0 then add 1 to buf_tail
+    // if we sort ahead of buf_tail for a batch job we will all the processes even tho
+    // none are currently on the cpu
+    if (!batch)
+        index = buf_tail + 1;
+    else
+        index = buf_tail;
+    qsort(&process_buffer[index], buf_head - index, sizeof(process_p), sort);
 }
 ```
 
@@ -1000,7 +1046,7 @@ void submit_job(const char *cmd)
 {
     const char *str_policy = get_policy_string();
     printf("Job %s was submitted.\n", cmd);
-    printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
+    printf("Total number of jobs in the queue: %d\n", count + 1);
     printf("Expected waiting time: %d\n",
            calculate_wait());
     printf("Scheduling Policy: %s.\n", str_policy);
@@ -1365,7 +1411,7 @@ Overall Metrics for Batch:
 	Min CPU Burst:                  0 seconds
 ```
 
-## 2 Second Arrival
+## Two Second Arrival
 
 First Come First Served, 5 Jobs, Arrival time 2 seconds, Priority Range 0-5, CPU Burst Range 0-10
 ```
@@ -1452,7 +1498,429 @@ Overall Metrics for Batch:
 ```
 
 Shortest Job First, 5 Jobs, Arrival time 2 seconds, Priority Range 0-5, CPU Burst Range 0-10
+```
+> [? for menu]: test bench2 sjf 5 2 5 0 10
+Benchmark is running please wait...
 
+=== Reporting Metrics for SJF ===
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           3 seconds
+        Interruptions:       0 times
+        Priority:            1
+        Arrival Time:        Mon Mar  9 11:33:48 2020
+        First Time on CPU:   Mon Mar  9 11:33:48 2020
+        Finish Time:         Mon Mar  9 11:33:51 2020
+        Turnaround Time:     3 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           5 seconds
+        Interruptions:       0 times
+        Priority:            6
+        Arrival Time:        Mon Mar  9 11:33:50 2020
+        First Time on CPU:   Mon Mar  9 11:33:51 2020
+        Finish Time:         Mon Mar  9 11:33:56 2020
+        Turnaround Time:     6 seconds
+        Waiting Time:        1 seconds
+        Response Time:       1 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           0 seconds
+        Interruptions:       0 times
+        Priority:            5
+        Arrival Time:        Mon Mar  9 11:33:54 2020
+        First Time on CPU:   Mon Mar  9 11:33:56 2020
+        Finish Time:         Mon Mar  9 11:33:56 2020
+        Turnaround Time:     2 seconds
+        Waiting Time:        2 seconds
+        Response Time:       2 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           6 seconds
+        Interruptions:       0 times
+        Priority:            2
+        Arrival Time:        Mon Mar  9 11:33:52 2020
+        First Time on CPU:   Mon Mar  9 11:33:56 2020
+        Finish Time:         Mon Mar  9 11:34:02 2020
+        Turnaround Time:     10 seconds
+        Waiting Time:        4 seconds
+        Response Time:       4 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           8 seconds
+        Interruptions:       0 times
+        Priority:            3
+        Arrival Time:        Mon Mar  9 11:33:56 2020
+        First Time on CPU:   Mon Mar  9 11:34:02 2020
+        Finish Time:         Mon Mar  9 11:34:10 2020
+        Turnaround Time:     14 seconds
+        Waiting Time:        6 seconds
+        Response Time:       6 seconds
+
+Overall Metrics for Batch:
+        Total Number of Jobs Completed: 5
+        Total Number of Jobs Submitted: 5
+        Average Turnaround Time:        7.000 seconds
+        Average Waiting Time:           2.600 seconds
+        Average Response Time:          2.600 seconds
+        Average CPU Burst:              4.400 seconds
+        Total CPU Burst:                22 seconds
+        Throughput:                     0.143 No./second
+        Max Turnaround Time:            14 seconds
+        Min Turnaround Time:            2 seconds
+
+        Max Waiting Time:               6 seconds
+        Min Waiting Time:               0 seconds
+
+        Max Response Time:              6 seconds
+        Min Response Time:              0 seconds
+
+        Max CPU Burst:                  8 seconds
+        Min CPU Burst:                  0 seconds
+```
+
+Priority Based, 5 Jobs, Arrival time 2 seconds, Priority Range 0-5, CPU Burst Range 0-10
+```
+> [? for menu]: test bench3 priority 5 2 5 0 10
+Benchmark is running please wait...
+
+=== Reporting Metrics for Priority ===
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           3 seconds
+        Interruptions:       0 times
+        Priority:            1
+        Arrival Time:        Mon Mar  9 11:34:57 2020
+        First Time on CPU:   Mon Mar  9 11:34:57 2020
+        Finish Time:         Mon Mar  9 11:35:00 2020
+        Turnaround Time:     3 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           5 seconds
+        Interruptions:       0 times
+        Priority:            6
+        Arrival Time:        Mon Mar  9 11:34:59 2020
+        First Time on CPU:   Mon Mar  9 11:35:00 2020
+        Finish Time:         Mon Mar  9 11:35:05 2020
+        Turnaround Time:     6 seconds
+        Waiting Time:        1 seconds
+        Response Time:       1 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           0 seconds
+        Interruptions:       0 times
+        Priority:            5
+        Arrival Time:        Mon Mar  9 11:35:03 2020
+        First Time on CPU:   Mon Mar  9 11:35:05 2020
+        Finish Time:         Mon Mar  9 11:35:05 2020
+        Turnaround Time:     2 seconds
+        Waiting Time:        2 seconds
+        Response Time:       2 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           8 seconds
+        Interruptions:       0 times
+        Priority:            3
+        Arrival Time:        Mon Mar  9 11:35:05 2020
+        First Time on CPU:   Mon Mar  9 11:35:05 2020
+        Finish Time:         Mon Mar  9 11:35:13 2020
+        Turnaround Time:     8 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           6 seconds
+        Interruptions:       0 times
+        Priority:            2
+        Arrival Time:        Mon Mar  9 11:35:01 2020
+        First Time on CPU:   Mon Mar  9 11:35:13 2020
+        Finish Time:         Mon Mar  9 11:35:19 2020
+        Turnaround Time:     18 seconds
+        Waiting Time:        12 seconds
+        Response Time:       12 seconds
+
+Overall Metrics for Batch:
+        Total Number of Jobs Completed: 5
+        Total Number of Jobs Submitted: 5
+        Average Turnaround Time:        7.400 seconds
+        Average Waiting Time:           3.000 seconds
+        Average Response Time:          3.000 seconds
+        Average CPU Burst:              4.400 seconds
+        Total CPU Burst:                22 seconds
+        Throughput:                     0.135 No./second
+        Max Turnaround Time:            18 seconds
+        Min Turnaround Time:            2 seconds
+
+        Max Waiting Time:               12 seconds
+        Min Waiting Time:               0 seconds
+
+        Max Response Time:              12 seconds
+        Min Response Time:              0 seconds
+
+        Max CPU Burst:                  8 seconds
+        Min CPU Burst:                  0 seconds
+
+```
+
+
+
+
+## Max Burst < Arrival Time
+
+First Come First Served, 5 Jobs, Arrival time instant, Priority Range 0-5, CPU Burst Range 0-3
+```
+> [? for menu]: test bench1 fcfs 5 2 5 0 3 
+Benchmark is running please wait...
+
+=== Reporting Metrics for FCFS ===
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           3 seconds
+        Interruptions:       0 times
+        Priority:            1
+        Arrival Time:        Mon Mar  9 11:37:56 2020
+        First Time on CPU:   Mon Mar  9 11:37:56 2020
+        Finish Time:         Mon Mar  9 11:37:59 2020
+        Turnaround Time:     3 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           0 seconds
+        Interruptions:       0 times
+        Priority:            6
+        Arrival Time:        Mon Mar  9 11:37:58 2020
+        First Time on CPU:   Mon Mar  9 11:37:59 2020
+        Finish Time:         Mon Mar  9 11:37:59 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        1 seconds
+        Response Time:       1 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            2
+        Arrival Time:        Mon Mar  9 11:38:00 2020
+        First Time on CPU:   Mon Mar  9 11:38:00 2020
+        Finish Time:         Mon Mar  9 11:38:01 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            5
+        Arrival Time:        Mon Mar  9 11:38:02 2020
+        First Time on CPU:   Mon Mar  9 11:38:02 2020
+        Finish Time:         Mon Mar  9 11:38:03 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            3
+        Arrival Time:        Mon Mar  9 11:38:04 2020
+        First Time on CPU:   Mon Mar  9 11:38:04 2020
+        Finish Time:         Mon Mar  9 11:38:05 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Overall Metrics for Batch:
+        Total Number of Jobs Completed: 5
+        Total Number of Jobs Submitted: 5
+        Average Turnaround Time:        1.400 seconds
+        Average Waiting Time:           0.200 seconds
+        Average Response Time:          0.200 seconds
+        Average CPU Burst:              1.200 seconds
+        Total CPU Burst:                6 seconds
+        Throughput:                     0.714 No./second
+        Max Turnaround Time:            1 seconds
+        Min Turnaround Time:            1 seconds
+
+        Max Waiting Time:               1 seconds
+        Min Waiting Time:               0 seconds
+
+        Max Response Time:              1 seconds
+        Min Response Time:              0 seconds
+
+        Max CPU Burst:                  3 seconds
+        Min CPU Burst:                  0 seconds
+```
+
+Shortest Job First, 5 Jobs, Arrival time instant, Priority Range 0-5, CPU Burst Range 0-3
+```
+> [? for menu]: test bench3 sjf 5 2 5 0 3 
+Benchmark is running please wait...
+
+=== Reporting Metrics for SJF ===
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           3 seconds
+        Interruptions:       0 times
+        Priority:            1
+        Arrival Time:        Mon Mar  9 11:38:58 2020
+        First Time on CPU:   Mon Mar  9 11:38:58 2020
+        Finish Time:         Mon Mar  9 11:39:01 2020
+        Turnaround Time:     3 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           0 seconds
+        Interruptions:       0 times
+        Priority:            6
+        Arrival Time:        Mon Mar  9 11:39:00 2020
+        First Time on CPU:   Mon Mar  9 11:39:01 2020
+        Finish Time:         Mon Mar  9 11:39:01 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        1 seconds
+        Response Time:       1 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            2
+        Arrival Time:        Mon Mar  9 11:39:02 2020
+        First Time on CPU:   Mon Mar  9 11:39:02 2020
+        Finish Time:         Mon Mar  9 11:39:03 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            5
+        Arrival Time:        Mon Mar  9 11:39:04 2020
+        First Time on CPU:   Mon Mar  9 11:39:04 2020
+        Finish Time:         Mon Mar  9 11:39:05 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            3
+        Arrival Time:        Mon Mar  9 11:39:06 2020
+        First Time on CPU:   Mon Mar  9 11:39:06 2020
+        Finish Time:         Mon Mar  9 11:39:07 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Overall Metrics for Batch:
+        Total Number of Jobs Completed: 5
+        Total Number of Jobs Submitted: 5
+        Average Turnaround Time:        1.400 seconds
+        Average Waiting Time:           0.200 seconds
+        Average Response Time:          0.200 seconds
+        Average CPU Burst:              1.200 seconds
+        Total CPU Burst:                6 seconds
+        Throughput:                     0.714 No./second
+        Max Turnaround Time:            1 seconds
+        Min Turnaround Time:            1 seconds
+
+        Max Waiting Time:               1 seconds
+        Min Waiting Time:               0 seconds
+
+        Max Response Time:              1 seconds
+        Min Response Time:              0 seconds
+
+        Max CPU Burst:                  3 seconds
+        Min CPU Burst:                  0 seconds
+```
+Priority Based, 5 Jobs, Arrival time instant, Priority Range 0-5, CPU Burst Range 0-3
+```
+> [? for menu]: test bench3 priority 5 2 5 0 3 
+Benchmark is running please wait...
+
+=== Reporting Metrics for Priority ===
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           3 seconds
+        Interruptions:       0 times
+        Priority:            1
+        Arrival Time:        Mon Mar  9 11:36:36 2020
+        First Time on CPU:   Mon Mar  9 11:36:36 2020
+        Finish Time:         Mon Mar  9 11:36:39 2020
+        Turnaround Time:     3 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           0 seconds
+        Interruptions:       0 times
+        Priority:            6
+        Arrival Time:        Mon Mar  9 11:36:38 2020
+        First Time on CPU:   Mon Mar  9 11:36:39 2020
+        Finish Time:         Mon Mar  9 11:36:39 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        1 seconds
+        Response Time:       1 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            2
+        Arrival Time:        Mon Mar  9 11:36:40 2020
+        First Time on CPU:   Mon Mar  9 11:36:40 2020
+        Finish Time:         Mon Mar  9 11:36:41 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            5
+        Arrival Time:        Mon Mar  9 11:36:42 2020
+        First Time on CPU:   Mon Mar  9 11:36:42 2020
+        Finish Time:         Mon Mar  9 11:36:43 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+        CPU Burst:           1 seconds
+        Interruptions:       0 times
+        Priority:            3
+        Arrival Time:        Mon Mar  9 11:36:44 2020
+        First Time on CPU:   Mon Mar  9 11:36:44 2020
+        Finish Time:         Mon Mar  9 11:36:45 2020
+        Turnaround Time:     1 seconds
+        Waiting Time:        0 seconds
+        Response Time:       0 seconds
+
+Overall Metrics for Batch:
+        Total Number of Jobs Completed: 5
+        Total Number of Jobs Submitted: 5
+        Average Turnaround Time:        1.400 seconds
+        Average Waiting Time:           0.200 seconds
+        Average Response Time:          0.200 seconds
+        Average CPU Burst:              1.200 seconds
+        Total CPU Burst:                6 seconds
+        Throughput:                     0.714 No./second
+        Max Turnaround Time:            1 seconds
+        Min Turnaround Time:            1 seconds
+
+        Max Waiting Time:               1 seconds
+        Min Waiting Time:               0 seconds
+
+        Max Response Time:              1 seconds
+        Min Response Time:              0 seconds
+
+        Max CPU Burst:                  3 seconds
+        Min CPU Burst:                  0 seconds
+```
 # Lessons Learned
 
 # Conclusion
