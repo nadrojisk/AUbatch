@@ -25,12 +25,12 @@
 static const char *helpmenu[] = {
     "run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>",
     "list: display the job status",
-    "help: Print help menu",
+    "help: print help menu",
     "fcfs: change the scheduling policy to FCFS",
     "sjf: changes the scheduling policy to SJF",
     "priority: changes the scheduling policy to priority",
-    "test: <benchmark> <policy> <num_of_jobs> <priority_levels> <min_CPU_time> <max_CPU_time>",
-    "quit: Exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
+    "test <benchmark> <policy> <num_of_jobs> <arrival_time> <priority_levels> <min_CPU_time> <max_CPU_time>",
+    "quit: exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish",
     NULL};
 
 typedef struct
@@ -152,23 +152,26 @@ int cmd_run(int nargs, char **args)
  */
 int cmd_quit(int nargs, char **args)
 {
-    if (!strcmp(args[1], "-i")) // wait for current job to finish running
+    if (nargs == 2)
     {
-
-        int cur_count = count;
-        printf("Waiting for current job to finish ... \n");
-        if (count)
+        if (!strcmp(args[1], "-i")) // wait for current job to finish running
         {
-            while (cur_count == count)
+
+            int cur_count = count;
+            printf("Waiting for current job to finish ... \n");
+            if (count)
             {
+                while (cur_count == count)
+                {
+                }
             }
         }
-    }
-    else if (!strcmp(args[1], "-d")) // wait for all jobs to finish
-    {
-        printf("Waiting for all jobs to finish...\n");
-        while (count)
+        else if (!strcmp(args[1], "-d")) // wait for all jobs to finish
         {
+            printf("Waiting for all jobs to finish...\n");
+            while (count)
+            {
+            }
         }
     }
     printf("Quiting AUBatch... \n");
@@ -238,6 +241,8 @@ void change_scheduler()
 {
     const char *str_policy = get_policy_string();
     printf("Scheduling policy is switched to %s. All the %d waiting jobs have been rescheduled.\n", str_policy, buf_head - buf_tail);
+    if (count)
+        sort_buffer(process_buffer);
 }
 
 /*
@@ -248,7 +253,8 @@ int cmd_list()
     if (finished_head || count)
     {
         printf("Name               CPU_Time Pri Arrival_time             Progress\n");
-        for (int i = 0; i < finished_head; i++)
+        int i;
+        for (i = 0; i < finished_head; i++)
         {
 
             finished_process_p process = finished_process_buffer[i];
@@ -264,7 +270,7 @@ int cmd_list()
                    status);
         }
 
-        for (int i = 0; i < buf_head; i++)
+        for (i = 0; i < buf_head; i++)
         {
 
             process_p process = process_buffer[i];
@@ -329,9 +335,9 @@ int cmd_test(int nargs, char **argv)
         printf("Error: <min_CPU_time> cannot be greater than or equal to <max_CPU_time>\n");
         return EINVAL;
     }
-    else if (num_of_jobs < 0 || min_cpu_burst < 0 || max_cpu_burst < 0 || priority_levels < 0 || arrival_rate < 0)
+    else if (num_of_jobs <= 0 || min_cpu_burst < 0 || max_cpu_burst < 0 || priority_levels < 0 || arrival_rate < 0)
     {
-        printf("Error: <num_of_jobs> <min_CPU_time> <max_CPU_time> <arrival_rate> and <priority_levels> must be greater than 0\n");
+        printf("Error: <num_of_jobs> cannot be equal or less than zero\nError: <min_CPU_time> <max_CPU_time> <arrival_rate> and <priority_levels> must be greater than 0\n");
         return EINVAL;
     }
 
@@ -364,7 +370,8 @@ int cmd_test(int nargs, char **argv)
     // clear process queue and finished queue
     // ensures that the metrics aren't reported when quitting aubatch
     // also ensures if running metrics again that the prior jobs will not interfere
-    for (int i = 0; i < finished_head; i++)
+    int i;
+    for (i = 0; i < finished_head; i++)
     {
         free(finished_process_buffer[i]);
     }

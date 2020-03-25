@@ -1,0 +1,116 @@
+Script started on Mon Mar  9 17:06:35 2020
+[1m[7m%[27m[1m[0m                                                                                                                                                 ]2;snow@taiga: ~/Documents/GitHub/AUbatch]1;..itHub/AUbatch[0m[27m[24m[J[39m[0m[49m[40m[39m snow@taiga [44m[30m[30m ~/Documents/GitHub/AUbatch [43m[34m[30m  feature/report ● [49m[33m[39m [K[?1h=[?2004h[32m.[39m[90m/aubatch[39m[8D[39m[4m.[39m[4m/[24m[4m.[4m/[39m[4ma[24m[4ma[39m[4mu[24m[4mu[39m[4mb[24m[4mb[39m[4ma[24m[4ma[39m[4mt[24m[4mt[39m[4mc[24m[8D[24m[32m.[24m[32m/[24m[32ma[24m[32mu[24m[32mb[24m[32ma[24m[32mt[24m[32mc[32mh[39m[?1l>[?2004l
+]2;./aubatch]1;./aubatchWelcome to Jordan Sosnowski's batch job scheduler Version 1.0.
+Type 'help' to find more about AUbatch commands.
+> [? for menu]: help
+
+AUbatch help menu
+run <job> <time> <priority>: submit a job named <job>, execution time is <time>, priority is <pr>
+list: display the job status
+help: print help menu
+fcfs: change the scheduling policy to FCFS
+sjf: changes the scheduling policy to SJF
+priority: changes the scheduling policy to priority
+test <benchmark> <policy> <num_of_jobs> <arrival_time> <priority_levels> <min_CPU_time> <max_CPU_time>
+quit: exit AUbatch | -i quits after current job finishes | -d quits after all jobs finish
+
+> [? for menu]: run ./microbatch.out 60 1
+Job ./microbatch.out was submitted.
+Total number of jobs in the queue: 1
+Expected waiting time: 0
+Scheduling Policy: FCFS.
+> [? for menu]: run ./microbatch.out 20 1 2
+Job ./microbatch.out was submitted.
+Total number of jobs in the queue: 2
+Expected waiting time: 60
+Scheduling Policy: FCFS.
+> [? for menu]: run ./microbatch.out 5 6
+Job ./microbatch.out was submitted.
+Total number of jobs in the queue: 3
+Expected waiting time: 80
+Scheduling Policy: FCFS.
+> [? for menu]: list
+Name               CPU_Time Pri Arrival_time             Progress
+./microbatch.out   60       1   Mon Mar  9 17:06:46 2020 running 
+./microbatch.out   20       2   Mon Mar  9 17:06:52 2020 -------
+./microbatch.out   5        6   Mon Mar  9 17:06:59 2020 -------
+
+> [? for menu]: sjf
+Scheduling policy is switched to SJF. All the 3 waiting jobs have been rescheduled.
+> [? for menu]: ls
+Name               CPU_Time Pri Arrival_time             Progress
+./microbatch.out   60       1   Mon Mar  9 17:06:46 2020 running 
+./microbatch.out   5        6   Mon Mar  9 17:06:59 2020 -------
+./microbatch.out   20       2   Mon Mar  9 17:06:52 2020 -------
+
+> [? for menu]: priority
+Scheduling policy is switched to Priority. All the 3 waiting jobs have been rescheduled.
+> [? for menu]: ls
+Name               CPU_Time Pri Arrival_time             Progress
+./microbatch.out   60       1   Mon Mar  9 17:06:46 2020 running 
+./microbatch.out   5        6   Mon Mar  9 17:06:59 2020 -------
+./microbatch.out   20       2   Mon Mar  9 17:06:52 2020 -------
+
+> [? for menu]: quit -d
+Waiting for all jobs to finish...
+Quiting AUBatch... 
+
+=== Reporting Metrics for Priority ===
+
+Metrics for job ./microbatch.out:
+	CPU Burst:           61 seconds
+	Interruptions:       0 times
+	Priority:            1
+	Arrival Time:        Mon Mar  9 17:06:46 2020
+	First Time on CPU:   Mon Mar  9 17:06:46 2020
+	Finish Time:         Mon Mar  9 17:07:47 2020
+	Turnaround Time:     61 seconds
+	Waiting Time:        0 seconds
+	Response Time:       0 seconds
+
+Metrics for job ./microbatch.out:
+	CPU Burst:           5 seconds
+	Interruptions:       0 times
+	Priority:            6
+	Arrival Time:        Mon Mar  9 17:06:59 2020
+	First Time on CPU:   Mon Mar  9 17:07:47 2020
+	Finish Time:         Mon Mar  9 17:07:52 2020
+	Turnaround Time:     53 seconds
+	Waiting Time:        48 seconds
+	Response Time:       48 seconds
+
+Metrics for job ./microbatch.out:
+	CPU Burst:           20 seconds
+	Interruptions:       0 times
+	Priority:            2
+	Arrival Time:        Mon Mar  9 17:06:52 2020
+	First Time on CPU:   Mon Mar  9 17:07:52 2020
+	Finish Time:         Mon Mar  9 17:08:12 2020
+	Turnaround Time:     80 seconds
+	Waiting Time:        60 seconds
+	Response Time:       60 seconds
+
+Overall Metrics for Batch:
+	Total Number of Jobs Completed: 3
+	Total Number of Jobs Submitted: 3
+	Average Turnaround Time:        64.667 seconds
+	Average Waiting Time:           36.000 seconds
+	Average Response Time:          36.000 seconds
+	Average CPU Burst:              28.667 seconds
+	Total CPU Burst:                86 seconds
+	Throughput:                     0.015 No./second
+	Max Turnaround Time:            80 seconds
+	Min Turnaround Time:            53 seconds
+
+	Max Waiting Time:               60 seconds
+	Min Waiting Time:               0 seconds
+
+	Max Response Time:              60 seconds
+	Min Response Time:              0 seconds
+
+	Max CPU Burst:                  61 seconds
+	Min CPU Burst:                  5 seconds
+
+[1m[7m%[27m[1m[0m                                                                                                                                                 ]2;snow@taiga: ~/Documents/GitHub/AUbatch]1;..itHub/AUbatch[0m[27m[24m[J[39m[0m[49m[40m[39m snow@taiga [44m[30m[30m ~/Documents/GitHub/AUbatch [43m[34m[30m  feature/report ● [49m[33m[39m [K[?1h=[?2004h[4me[24m[90mxit[39m[24m[32me[32mx[39m[1m[31me[1m[31mx[1m[31mi[0m[39m[0m[32me[0m[32mx[0m[32mi[32mt[39m[?1l>[?2004l
+]2;exit]1;exit
+Script done on Mon Mar  9 17:08:19 2020

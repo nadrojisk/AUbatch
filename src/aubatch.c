@@ -20,7 +20,7 @@
 
 int main(int argc, char **argv)
 {
-    printf("Welcome to Jordan Sosnowski's batch job scheduler Version 1.0.\nType ‘help’ to find more about AUbatch commands.\n");
+    printf("Welcome to Jordan Sosnowski's batch job scheduler Version 1.0.\nType 'help' to find more about AUbatch commands.\n");
     pthread_t executor_thread, dispatcher_thread; /* Two concurrent threads */
 
     int iret1, iret2;
@@ -32,6 +32,7 @@ int main(int argc, char **argv)
     buf_head = 0;
     buf_tail = 0;
     finished_head = 0;
+    batch = 0;
 
     /* Create two independent threads: executor and dispatcher */
 

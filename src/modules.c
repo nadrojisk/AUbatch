@@ -27,22 +27,36 @@
  */
 void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int priority_levels, int min_CPU_time, int max_CPU_time)
 {
-    /* lock the shared command queue */
-    pthread_mutex_lock(&cmd_queue_lock);
-
-    while (count == CMD_BUF_SIZE)
-    {
-        pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
-    }
-
-    pthread_mutex_unlock(&cmd_queue_lock);
+    if (!arrival_rate)
+        batch = 1;
+    else
+        batch = 0;
 
     // create jobs based on num_of_jobs
-    for (int i = 0; i < num_of_jobs; i++)
+    int i;
+    for (i = 0; i < num_of_jobs; i++)
     {
+        if (i >= CMD_BUF_SIZE)
+        // if i is larger than cmd_buff we need to notify dispatcher earlier
+        // without this we would be stuck forever
+        {
+            pthread_cond_signal(&cmd_buf_not_empty);
+        }
+
+        /* lock the shared command queue */
+        pthread_mutex_lock(&cmd_queue_lock);
+
+        while (count == CMD_BUF_SIZE)
+        {
+            pthread_cond_wait(&cmd_buf_not_full, &cmd_queue_lock);
+        }
+
+        pthread_mutex_unlock(&cmd_queue_lock);
+
+        process_p process = malloc(sizeof(process_t));
+
         int priority = (rand() % (priority_levels + 1)) + 1;
         int cpu_burst = (rand() % (max_CPU_time + 1)) + min_CPU_time;
-        process_p process = malloc(sizeof(process_t));
         strcpy(process->cmd, "./microbatch.out");
         process->arrival_time = time(NULL);
         process->cpu_burst = cpu_burst;
@@ -51,35 +65,27 @@ void test_scheduler(char *benchmark, int num_of_jobs, int arrival_rate, int prio
         process->interruptions = 0;
         process->first_time_on_cpu = 0;
         process_buffer[buf_head] = process;
-        count++;
 
+        count++;
         /* Move buf_head forward, this is a circular queue */
         buf_head++;
+        // sort before moding buf_head, without this if you were to sort CMD_BUF_SIZE items it would break
+        sort_buffer(process_buffer);
         buf_head %= CMD_BUF_SIZE;
 
-        if (arrival_rate) // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
+        pthread_mutex_unlock(&cmd_queue_lock);
+
+        if (arrival_rate)
         {
-            pthread_mutex_lock(&cmd_queue_lock);
-
-            sort_buffer(process_buffer);
-
-            /* Unlock the shared command queue */
-
+            // if there is an arrival rate, notify dispatcher immediately and then sleep for arrival_rate
             pthread_cond_signal(&cmd_buf_not_empty);
-            pthread_mutex_unlock(&cmd_queue_lock);
             sleep(arrival_rate); // wait for the arrival rate
         }
     }
     if (!arrival_rate) // if arrival rate is 0, load all the jobs and then notify dispatcher
     {
-        pthread_mutex_lock(&cmd_queue_lock);
-
-        sort_buffer(process_buffer);
-
         /* Unlock the shared command queue */
-
         pthread_cond_signal(&cmd_buf_not_empty);
-        pthread_mutex_unlock(&cmd_queue_lock);
     }
 }
 /* 
@@ -110,10 +116,9 @@ void scheduler(int argc, char **argv)
 
     /* Move buf_head forward, this is a circular queue */
     buf_head++;
-    buf_head %= CMD_BUF_SIZE;
-
-        // ensure buffer is in accordance to current policy
+    // ensure buffer is in accordance to current policy
     sort_buffer(process_buffer);
+    buf_head %= CMD_BUF_SIZE;
 
     /* Unlock the shared command queue */
     pthread_cond_signal(&cmd_buf_not_empty);
@@ -166,21 +171,13 @@ void *dispatcher(void *ptr)
 int calculate_wait()
 {
     int wait = 0;
-    for (int i = buf_tail; i < buf_head; i++)
+    int i;
+    for (i = buf_tail; i < buf_head; i++)
     {
         wait += process_buffer[i]->cpu_remaining_burst;
     }
-    // if (running_process != NULL)
-    // {
-
-    //     // TODO: get a finer grain of estimation
-    //     // (time(NULL) - running_process->first_time_on_cpu) - cpu_remaining_burst
-    //     wait += running_process->cpu_remaining_burst;
-    // }
     return wait;
 }
-
-//TODO: check if job queue is full
 
 /*
  * Loads process via argv, this is called when `run` is specified in the command line
@@ -360,7 +357,16 @@ void sort_buffer(process_p *process_buffer)
 
     // only sort buf_tail and more, if we sort at the base of process_buffer we will
     // sort processes that are currently running on the cpu
-    qsort(&process_buffer[buf_tail], buf_head - buf_tail, sizeof(process_p), sort);
+    int index;
+
+    // if we are doing a batch job, aka arrival rate is not 0 then add 1 to buf_tail
+    // if we sort ahead of buf_tail for a batch job we will all the processes even tho
+    // none are currently on the cpu
+    if (!batch)
+        index = buf_tail + 1;
+    else
+        index = buf_tail;
+    qsort(&process_buffer[index], buf_head - index, sizeof(process_p), sort);
 }
 
 /*
@@ -449,7 +455,7 @@ void submit_job(const char *cmd)
 {
     const char *str_policy = get_policy_string();
     printf("Job %s was submitted.\n", cmd);
-    printf("Total number of jobs in the queue: %d\n", buf_head - buf_tail);
+    printf("Total number of jobs in the queue: %d\n", count + 1);
     printf("Expected waiting time: %d\n",
            calculate_wait());
     printf("Scheduling Policy: %s.\n", str_policy);
